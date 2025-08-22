@@ -9,7 +9,7 @@ app = create_app()
 
 
 def start_flask():
-    app.run(port=5000, debug=True, use_reloader=False)
+    app.run(port=5001, debug=True, use_reloader=False)
 
 
 if __name__ == "__main__":
