@@ -9,8 +9,7 @@
     "alpinejs": "^3.14.9"
   },
   "scripts": {
-    "build": "tailwindcss -i app/static/css/input.css -o app/static/css/style.css --minify",
-    "watch": "tailwindcss -i app/static/css/input.css -o app/static/css/style.css --watch",
-    "dev": "concurrently --names \"TailwindCSS,esbuild\" --prefix-colors \"blue,yellow\" \"tailwindcss -i app/static/css/input.css -o app/static/css/style.css --watch\" \"npx esbuild app/static/js/input.js --bundle --outfile=app/static/js/app.js --minify\""
+    "dev": "concurrently --names \"TailwindCSS,esbuild\" --prefix-colors \"blue,yellow\" \"tailwindcss -i app/static/css/input.css -o app/static/css/style.css --watch\" \"esbuild app/static/js/input.js --bundle --outfile=app/static/js/app.js --watch\"",
+    "build": "concurrently --names \"TailwindCSS,esbuild\" --prefix-colors \"blue,yellow\" \"tailwindcss -i app/static/css/input.css -o app/static/css/style.css --minify\" \"esbuild app/static/js/input.js --bundle --outfile=app/static/js/app.js --minify\""
   }
 }

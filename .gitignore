@@ -9,3 +9,6 @@ wheels/
 # Virtual environments
 .venv
 node_modules
+
+app/static/css/style.css
+app/static/js/app.js
