@@ -22,17 +22,8 @@
   </head>
   <body class="bg-gray-100 p-4 h-full overflow-hidden">
     <div
-      class="max-w-full mx-auto bg-white rounded shadow p-4 h-full overflow-auto box-border w-full max-w-full"
-      x-data="{ 
-        tab: 'review', 
-        selectedMode: 'BOM_TipTop_PTC', 
-        showModal: false, 
-        showSettingModal: false, 
-        reviewBomPath: '{{ bom_path }}', 
-        importBomPath: '{{ bom_path }}',
-        settings: { database_path: '{{ database_path }}', pn_location: '{{ pn_location }}' },
-        tempSettings: { database_path: '', pn_location: '' }
-      }"
+      class="max-w-full mx-auto bg-white rounded shadow p-4 h-full overflow-auto box-border w-full"
+      x-data="initData"
     >
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-2xl font-bold">CE BOM Tool</h1>
@@ -57,7 +48,7 @@
             class="flex-1 border rounded px-2 py-1"
           />
         </div>
-        <div class="flex items-center">
+        <!-- <div class="flex items-center">
           <span class="w-24">P/N Location:</span>
           <input
             type="text"
@@ -66,7 +57,7 @@
             x-model="settings.pn_location"
             class="w-24 border rounded px-2 py-1"
           />
-        </div>
+        </div> -->
       </div>
 
       <!-- Tabs -->
@@ -97,7 +88,7 @@
           <label class="block mb-1">BOM File Path:</label>
           <div class="flex">
             <input
-              id="bomPathInput"
+              id="reviewBomPathInput"
               type="text"
               readonly
               x-model="reviewBomPath"
@@ -106,16 +97,14 @@
             <button
               class="ml-2 px-2 py-1 bg-gray-200 rounded"
               type="button"
-              @click="window.pywebview.api.select_bom_path().then(path => {
-                if (path) reviewBomPath = path;
-              })"
+              @click="selectBOM().then(path => reviewBomPath = path);"
             >
               ...
             </button>
           </div>
         </div>
         <div class="mb-4">
-          <label class="block mb-1">是否區分主替料</label>
+          <label class="block mb-1">檔案規格：</label>
           <div class="flex flex-wrap gap-4 items-center">
             <label class="flex items-center">
               <input
@@ -165,13 +154,17 @@
           </div>
         </div>
         <div class="mb-4">
-          <button class="px-4 py-2 bg-blue-600 text-white rounded">
+          <button
+            class="px-4 py-2 bg-blue-600 text-white rounded"
+            @click="runReview()"
+          >
             Start Review
           </button>
         </div>
-        <div class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto">
-          {{ review_result }}
-        </div>
+        <div
+          x-text="$store.logStore.reviewLogs.join('\n')"
+          class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap"
+        ></div>
       </div>
 
       <!-- Import Tab -->
@@ -180,7 +173,7 @@
           <label class="block mb-1">BOM File Path:</label>
           <div class="flex">
             <input
-              id="bomPathInput"
+              id="importBomPathInput"
               type="text"
               readonly
               x-model="importBomPath"
@@ -189,9 +182,7 @@
             <button
               class="ml-2 px-2 py-1 bg-gray-200 rounded"
               type="button"
-              @click="window.pywebview.api.select_bom_path().then(path => {
-                if (path) importBomPath = path;
-              })"
+              @click="importBomPath = selectBOM();"
             >
               ...
             </button>
@@ -202,9 +193,10 @@
             Start Import
           </button>
         </div>
-        <div class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto">
-          {{ import_result }}
-        </div>
+        <div
+          x-text="$store.logStore.importLogs.join('\n')"
+          class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap"
+        ></div>
       </div>
 
       <!-- Update Tab -->
@@ -214,9 +206,10 @@
             Start Update
           </button>
         </div>
-        <div class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto">
-          {{ update_result }}
-        </div>
+        <div
+          x-text="$store.logStore.updateLogs.join('\n')"
+          class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap"
+        ></div>
       </div>
 
       <!-- 設定參數 Modal -->
@@ -239,7 +232,7 @@
                 x-model="tempSettings.database_path"
               />
             </div>
-            <div>
+            <!-- <div>
               <label class="block mb-1">P/N Location</label>
               <input
                 type="text"
@@ -247,12 +240,12 @@
                 placeholder="例如：B2"
                 x-model="tempSettings.pn_location"
               />
-            </div>
+            </div> -->
             <div class="flex justify-end gap-2">
               <button
                 type="button"
                 class="px-3 py-1 bg-blue-500 text-white rounded"
-                @click="settings = { ...tempSettings }; window.pywebview.api.save_settings(settings).then(() => showSettingModal = false)"
+                @click="settings = { ...tempSettings }; saveSettings(settings); showSettingModal = false"
               >
                 Save
               </button>
@@ -308,20 +301,4 @@
       </div>
     </div>
   </body>
-  <script>
-    document.addEventListener("alpine:init", () => {
-      window.pywebview = window.pywebview || {};
-      window.pywebview.api = window.pywebview.api || {};
-      if (!window.pywebview.api.select_bom_path) {
-        window.pywebview.api.select_bom_path = async () =>
-          "/Users/mock/path/to/file.xlsx";
-      }
-      if (!window.pywebview.api.save_settings) {
-        window.pywebview.api.save_settings = async (settings) => {
-          console.log("Mock save_settings called with:", settings);
-          return Promise.resolve();
-        };
-      }
-    });
-  </script>
 </html>

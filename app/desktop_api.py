@@ -1,7 +1,16 @@
+import json
+import traceback
 from typing import Optional
 
 import webview
 from flask import Flask
+
+from app.services.review import (
+    custom_review_service,
+    main_review_service,
+    result_review_service,
+    system_bom_review_service,
+)
 
 from .services import db_settings
 
@@ -24,3 +33,28 @@ class Api:
         db_settings.save_settings(settings)
         with self.app.app_context():
             self.app.config.update(settings)
+
+    def logs(self, type: str, msg: str):
+        if self.window:
+            print(
+                f"Alpine.store('logStore').addLog({json.dumps(type)}, {json.dumps(msg)})"
+            )
+            self.window.evaluate_js(
+                f"Alpine.store('logStore').addLog({json.dumps(type)}, {json.dumps(msg)})"
+            )
+        else:
+            print(msg)
+
+    def run_review(self, method, bom_path):
+        try:
+            if method == "BOM_TipTop_PTC":
+                main_review_service(self.app.config, bom_path, self)
+            elif method == "Result":
+                result_review_service(self.app.config, bom_path, self)
+            elif method == "系統BOM":
+                system_bom_review_service(self.app.config, bom_path, self)
+            elif method == "自定義":
+                pass
+                custom_review_service(self.app.config, bom_path, self)
+        except Exception as e:
+            self.logs("review", f"Review failed: {traceback.format_exc()}")
