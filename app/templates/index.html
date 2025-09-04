@@ -27,13 +27,6 @@
     >
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-2xl font-bold">CE BOM Tool</h1>
-        <button
-          class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
-          @click="tempSettings = { ...settings }; showSettingModal = true"
-          type="button"
-        >
-          參數設定
-        </button>
       </div>
 
       <!-- 固定在上方的區塊 -->
@@ -47,6 +40,13 @@
             x-model="settings.database_path"
             class="flex-1 border rounded px-2 py-1"
           />
+          <button
+            class="ml-2 px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
+            @click="tempSettings = { ...settings }; showSettingModal = true"
+            type="button"
+          >
+            參數設定
+          </button>
         </div>
         <!-- <div class="flex items-center">
           <span class="w-24">P/N Location:</span>
@@ -161,10 +161,11 @@
             Start Review
           </button>
         </div>
-        <div
+        <textarea
+          readonly
+          class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
           x-text="$store.logStore.reviewLogs.join('\n')"
-          class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap"
-        ></div>
+        ></textarea>
       </div>
 
       <!-- Import Tab -->
@@ -193,10 +194,11 @@
             Start Import
           </button>
         </div>
-        <div
+        <textarea
+          readonly
           x-text="$store.logStore.importLogs.join('\n')"
-          class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap"
-        ></div>
+          class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
+        ></textarea>
       </div>
 
       <!-- Update Tab -->
@@ -206,10 +208,11 @@
             Start Update
           </button>
         </div>
-        <div
+        <textarea
+          readonly
           x-text="$store.logStore.updateLogs.join('\n')"
-          class="border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap"
-        ></div>
+          class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
+        ></textarea>
       </div>
 
       <!-- 設定參數 Modal -->

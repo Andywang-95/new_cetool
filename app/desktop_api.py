@@ -36,11 +36,13 @@ class Api:
 
     def logs(self, type: str, msg: str):
         if self.window:
-            print(
-                f"Alpine.store('logStore').addLog({json.dumps(type)}, {json.dumps(msg)})"
-            )
             self.window.evaluate_js(
-                f"Alpine.store('logStore').addLog({json.dumps(type)}, {json.dumps(msg)})"
+                f"""
+                Alpine.store('logStore').addLog({json.dumps(type)}, {json.dumps(msg)});
+                document.querySelectorAll('.log-textarea').forEach(el => {{
+                    el.scrollTop = el.scrollHeight;
+                }});
+                """
             )
         else:
             print(msg)

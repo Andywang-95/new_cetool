@@ -37,17 +37,22 @@ def check_bom(bom_path):
     bom_file = Path(bom_path)
     if not bom_file.exists():
         return f"Error: \n\tBOM 檔案不存在 \n\t\t→ {bom_path}"
-    if not bom_file.is_file():
-        return f"Error: \n\t指定路徑不是檔案 \n\t\t→ {bom_path}"
+    if bom_file.suffix.lower() not in [".xls", ".xlsx"]:
+        return f"Error: \n\tBOM 檔案格式錯誤，請選擇 Excel 檔案 \n\t\t→ {bom_path}"
 
 
-def correct_comment(row):
-    if row["Action"] == "Add":
-        return row["raw_comment"]
-    elif pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]:
-        return "同主料"
-    else:
-        return row["raw_comment"]
+def change_df(bom_path):
+    suffix = Path(bom_path).suffix.lower()
+    bom_df = pd.DataFrame()
+    if suffix == ".xls":
+        with open(bom_path, encoding="big5") as f:
+            raw_data = [line.rstrip("\n") for line in f]
+        bom_df = pd.DataFrame([line.split("\t") for line in raw_data])
+    elif suffix == ".xlsx":
+        bom_df = pd.read_excel(bom_path, header=None)
+    return bom_df
+
+
 
 
 # 載入工作簿與工作表
