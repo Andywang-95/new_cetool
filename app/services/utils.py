@@ -53,6 +53,25 @@ def change_df(bom_path):
     return bom_df
 
 
+def correct_comment(row, method):
+    if method == "main":
+        if row["Action"] == "Add":
+            return row["raw_comment"]
+        elif (
+            pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]
+        ):
+            return "同主料"
+        else:
+            return row["raw_comment"]
+    elif method == "system":
+        if pd.notna(row["主件料號"]):
+            return row["raw_comment"]
+        elif (
+            pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]
+        ):
+            return "同主料"
+        else:
+            return row["raw_comment"]
 
 
 # 載入工作簿與工作表
