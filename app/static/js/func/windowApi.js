@@ -15,21 +15,14 @@ export default function windowApi() {
         return Promise.resolve("/Users/mock/path/to/file.xlsx");
       }
     },
-    // addLog(type, msg) {
-    //   if (type === "review") {
-    //     this.reviewLogs.push(msg);
-    //   } else if (type === "import") {
-    //     this.importLogs.push(msg);
-    //   } else if (type === "update") {
-    //     this.updateLogs.push(msg);
-    //   }
-    // },
     runReview() {
       if (window.pywebview && window.pywebview.api) {
         console.log("Running review...");
         return window.pywebview.api.run_review(
           this.selectedMode,
-          this.reviewBomPath
+          this.reviewBomPath,
+          this.custom.col,
+          this.custom.row
         );
       } else {
         console.log("Mock runReview", this.selectedMode, this.reviewBomPath);

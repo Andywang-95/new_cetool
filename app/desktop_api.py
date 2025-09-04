@@ -47,16 +47,15 @@ class Api:
         else:
             print(msg)
 
-    def run_review(self, method, bom_path):
+    def run_review(self, method, bom_path, col, row):
         try:
             if method == "BOM_TipTop_PTC":
-                main_review_service(self.app.config, bom_path, self)
+                main_review_service(self.app.config, bom_path, self, "C", 7)
             elif method == "Result":
-                result_review_service(self.app.config, bom_path, self)
+                result_review_service(self.app.config, bom_path, self, "B", 5)
             elif method == "系統BOM":
-                system_bom_review_service(self.app.config, bom_path, self)
+                system_bom_review_service(self.app.config, bom_path, self, "C", 2)
             elif method == "自定義":
-                pass
-                custom_review_service(self.app.config, bom_path, self)
+                custom_review_service(self.app.config, bom_path, self, col, int(row))
         except Exception as e:
             self.logs("review", f"Review failed: {traceback.format_exc()}")

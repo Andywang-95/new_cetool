@@ -290,8 +290,59 @@ def system_bom_review_service(data, bom_path, api):
     api.logs("review", "\n----------------------------------------\n")
 
 
-def custom_review_service(data, bom_path, api):
-    pass
+def custom_review_service(data, bom_path, api, cus_col, cus_row):
+    msg = utils.check_bom(bom_path)
+    if msg:
+        api.logs("review", msg)
+        return
 
+    parent_dir, filename, filename_stem = utils.path_detail(bom_path)
 
-# %%
+    # 檢查資料庫檔案狀態
+    msg = utils.check_database(data["database_path"])
+    if msg:
+        api.logs("review", msg)
+        return
+
+    api.logs("review", f"Starting review for 【{filename}】...")
+    # 讀出BOM檔案
+    bom_data = utils.change_df(bom_path)
+    # 新增說明欄位
+    new_col_idx = bom_data.shape[1]
+    bom_data[new_col_idx] = ""
+    # 讀出mapping檔案
+    mapping_df = pd.read_excel(f"{data['database_path']}/mapping.xlsx")
+    mapping_comment = mapping_df.set_index("料號")["說明"]
+    # 根據第二欄料號填入對應值
+    col = utils.columns_from_string(cus_col)
+    bom_data.iloc[cus_row:, new_col_idx] = (
+        bom_data.iloc[cus_row:, col].map(mapping_comment).fillna("")
+    )
+    # 篩選不在 mapping 且長度為16的料號
+    unmatched = bom_data.loc[
+        (~bom_data[col].isin(mapping_df["料號"]))
+        & (bom_data[col].map(lambda x: isinstance(x, str) and len(x) == 16)),
+        col,
+    ]
+
+    if not unmatched.empty:
+        api.logs("review", f"\t共 {len(unmatched)} 筆待維護料號:")
+
+    unmatched.apply(lambda pn: api.logs("review", f"\t\t{pn}"))
+    # 保存成新的 excel
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    new_filename = f"({today}){filename_stem}.xlsx"
+    new_path = parent_dir / new_filename
+    bom_data.to_excel(
+        new_path,
+        index=False,
+        header=False,
+    )
+
+    # 重新讀取比對完成的 excel
+    utils.hightlight_comment(
+        f"{data['database_path']}/mapping.xlsx", new_path, col, cus_row
+    )
+
+    api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
+    api.logs("review", "\n----------------------------------------\n")

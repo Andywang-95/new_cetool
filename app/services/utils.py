@@ -2,11 +2,12 @@ import datetime
 import os
 from copy import copy
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import pandas as pd
 from openpyxl import load_workbook
-from openpyxl.styles import Protection
+from openpyxl.styles import PatternFill, Protection
+from openpyxl.utils import column_index_from_string
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -74,12 +75,49 @@ def correct_comment(row, method):
             return row["raw_comment"]
 
 
-# 載入工作簿與工作表
-def load(path, name: Optional[str] = None) -> Tuple[Workbook, Worksheet]:
-    wb = load_workbook(path)
-    ws = wb[name] if name else wb.active
-    assert ws is not None  # 這裡告訴 Pylance ws 一定不是 None
-    return wb, ws
+def columns_from_string(col_name: str) -> int:
+    """將 Excel 欄位名稱轉換為 0-based 的欄位索引"""
+    return column_index_from_string(col_name) - 1
+
+
+def hightlight_comment(mapping_path, new_path, col, row):
+    # 重新讀取比對完成的 excel
+    wb_mapping, ws_mapping = load(mapping_path)
+    wb_bom, ws_bom = load(new_path)
+
+    # 設定 comment 欄位為黃色
+    last_col = ws_bom.max_column
+    last_row = ws_bom.max_row
+    for cells in ws_bom.iter_cols(min_col=last_col, max_col=last_col, max_row=last_row):
+        for cell in cells:
+            cell.fill = PatternFill(
+                start_color="FFFF00", end_color="FFFF00", fill_type="solid"
+            )
+
+    # 將 mapping 中非黃底的料號取出
+    warning_dict = {}
+    for r in ws_mapping.iter_rows(min_row=2):
+        if r[-1].fill.start_color.rgb != "FFFFFF00":
+            warning_dict[r[0].value] = copy(r[-1].fill)
+
+    # 將 BOM 中的料號與 mapping 中的非黃底料號比對，若有符合則套用填色
+    for r in ws_bom.iter_rows(min_row=row, min_col=col + 1):
+        if r[0].value in warning_dict:
+            r[-1].fill = warning_dict[r[0].value]
+
+    # 儲存修改後的 BOM 檔案
+    wb_bom.save(new_path)
+
+
+def path_detail(bom_path):
+    """
+    獲取檔案名稱與父目錄
+    """
+    p = Path(bom_path)
+    parent_dir = p.parent
+    filename = p.name
+    filename_stem = p.stem
+    return parent_dir, filename, filename_stem
 
 
 # 更具料號進行maintain各工作表的匹配
