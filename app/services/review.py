@@ -116,8 +116,52 @@ def main_review_service(data, bom_path, api):
     api.logs("review", "\n----------------------------------------\n")
 
 
+def result_review_service(data, bom_path, api):
+    msg = utils.check_bom(bom_path)
+    if msg:
+        api.logs("review", msg)
+        return
+    # 獲取檔案名稱與父目錄
+    p = Path(bom_path)
+    parent_dir = p.parent
+    filename = p.name
+    filename_stem = p.stem
+
+    # 檢查資料庫檔案狀態
+    msg = utils.check_database(data["database_path"])
+    if msg:
+        api.logs("review", msg)
+        return
+
+    api.logs("review", f"Starting review for 【{filename}】...")
+    # 讀出BOM檔案
+    bom_data = utils.change_df(bom_path)
+    if "Total count:" not in str(bom_data.iloc[0, 0]):
+        api.logs("review", "Error: \n\t此檔案可能非 Result BOM，請重新確認檔案規格 ！")
+        api.logs("review", "\n----------------------------------------\n")
+        return
+
+    # 新增說明欄位
+    new_col_idx = bom_data.shape[1]
+    bom_data[new_col_idx] = ""
+    # 讀出mapping檔案
+    mapping_df = pd.read_excel(f"{data['database_path']}/mapping.xlsx")
+    mapping_comment = mapping_df.set_index("料號")["說明"]
+    # 根據第二欄料號填入對應值
+    bom_data[new_col_idx] = bom_data.iloc[:, 1].map(mapping_comment).fillna("")
+    bom_data.iloc[2, new_col_idx] = "CE Comment"
+    # 計算不匹配料號
+    unmatched = bom_data.loc[~bom_data[1].isin(mapping_df["料號"]), 1]
+    if unmatched.any():
+        api.logs("review", "\t待維護料號:")
+    for part_num in unmatched:
+        if type(part_num) is str and len(part_num) == 16:
+            api.logs("review", f"\t\t{part_num}")
+    # 保存成新的 excel
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    new_filename = f"({today}){filename_stem}.xlsx"
     new_path = parent_dir / new_filename
-    final_df.to_excel(
+    bom_data.to_excel(
         new_path,
         index=False,
         header=False,
@@ -129,7 +173,8 @@ def main_review_service(data, bom_path, api):
 
     # 設定 comment 欄位為黃色
     last_col = ws_bom.max_column
-    for cells in ws_bom.iter_cols(min_col=last_col, max_col=last_col):
+    last_row = ws_bom.max_row
+    for cells in ws_bom.iter_cols(min_col=last_col, max_col=last_col, max_row=last_row):
         for cell in cells:
             cell.fill = PatternFill(
                 start_color="FFFF00", end_color="FFFF00", fill_type="solid"
@@ -150,10 +195,6 @@ def main_review_service(data, bom_path, api):
     wb_bom.save(new_path)
     api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
     api.logs("review", "\n----------------------------------------\n")
-
-
-def result_review_service(data, bom_path, api):
-    pass
 
 
 def system_bom_review_service(data, bom_path, api):
