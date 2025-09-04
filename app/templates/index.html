@@ -48,16 +48,6 @@
             參數設定
           </button>
         </div>
-        <!-- <div class="flex items-center">
-          <span class="w-24">P/N Location:</span>
-          <input
-            type="text"
-            readonly
-            disabled
-            x-model="settings.pn_location"
-            class="w-24 border rounded px-2 py-1"
-          />
-        </div> -->
       </div>
 
       <!-- Tabs -->
@@ -235,15 +225,6 @@
                 x-model="tempSettings.database_path"
               />
             </div>
-            <!-- <div>
-              <label class="block mb-1">P/N Location</label>
-              <input
-                type="text"
-                class="w-full border p-1 rounded"
-                placeholder="例如：B2"
-                x-model="tempSettings.pn_location"
-              />
-            </div> -->
             <div class="flex justify-end gap-2">
               <button
                 type="button"
@@ -276,24 +257,24 @@
           <h2 class="text-lg mb-4">自定義設定</h2>
           <form class="space-y-2">
             <div>
-              <label class="block mb-1">Part Number 列名</label>
-              <input type="text" class="w-full border p-1 rounded" />
+              <label class="block mb-1">PN Column Name</label>
+              <input type="text" class="w-full border p-1 rounded" placeholder="ex. A" x-model="tempCustom.col" />
             </div>
             <div>
-              <label class="block mb-1">起始行</label>
-              <input type="text" class="w-full border p-1 rounded" />
+              <label class="block mb-1">PN Row Number</label>
+              <input type="text" class="w-full border p-1 rounded" placeholder="ex. 2" x-model="tempCustom.row" />
             </div>
             <div class="flex justify-end gap-2">
               <button
                 type="button"
                 class="px-3 py-1 bg-blue-500 text-white rounded"
-                @click="/* 這裡放你 Save 的邏輯 */ showModal = false"
+                @click="custom = { ...tempCustom }; showModal = false"
               >
                 Save
               </button>
               <button
                 type="button"
-                @click="showModal = false"
+                @click="tempCustom = { ...custom }; showModal = false"
                 class="px-3 py-1 bg-gray-300 rounded"
               >
                 Close

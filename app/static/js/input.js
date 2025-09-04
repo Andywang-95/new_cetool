@@ -13,9 +13,8 @@ Alpine.data("initData", () => ({
   showSettingModal: false,
   reviewBomPath: "",
   importBomPath: "",
-  // reviewLogs: ["test review log 1", "test review log 2"],
-  // importLogs: ["test import log 1", "test import log 2"],
-  // updateLogs: ["test update log 1", "test update log 2"],
+  custom: { col: "A", row: "2" },
+  tempCustom: { col: "A", row: "2" },
   settings: {},
   tempSettings: {},
   async init() {
