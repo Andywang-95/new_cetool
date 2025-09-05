@@ -45,7 +45,7 @@ def check_bom(bom_path):
         return f"Error: \n\tBOM 檔案格式錯誤，請選擇 Excel 檔案 \n\t\t→ {bom_path}"
 
 
-def read_files(bom_path, database_path):
+def review_files(bom_path, database_path):
     """
     讀取 BOM 原始 xls 或 xlsx 檔案並轉換為 DataFrame；同時加載 mapping.xlsx 為Series
     """

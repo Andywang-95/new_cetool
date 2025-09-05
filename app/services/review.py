@@ -48,7 +48,7 @@ class ReviewService:
 
     def _main_review(self, col, row):
         # 讀出 BOM 和 mapping 檔案
-        bom_df, mapping_comment = utils.read_files(self.bom_path, self.database_path)
+        bom_df, mapping_comment = utils.review_files(self.bom_path, self.database_path)
         # 複製前 5 行原始資料
         header_rows = bom_df.iloc[: row - 1].copy()
         header_rows.loc[header_rows.index[-1], header_rows.shape[1]] = "CE Comment"
@@ -82,7 +82,9 @@ class ReviewService:
 
     def _system_review(self, col, row):
         # 讀出BOM檔案
-        bom_data, mapping_comment = utils.read_files(self.bom_path, self.database_path)
+        bom_data, mapping_comment = utils.review_files(
+            self.bom_path, self.database_path
+        )
         bom_data.columns = bom_data.iloc[0]
         bom_data["group"] = bom_data["主件料號"].notna().cumsum()
         # 篩選不在 mapping 且長度為16的料號
@@ -107,7 +109,9 @@ class ReviewService:
 
     def _custom_review(self, col, row):
         # 讀出BOM檔案
-        bom_data, mapping_comment = utils.read_files(self.bom_path, self.database_path)
+        bom_data, mapping_comment = utils.review_files(
+            self.bom_path, self.database_path
+        )
         # 新增說明欄位
         new_col_idx = bom_data.shape[1]
         bom_data[new_col_idx] = ""
@@ -124,7 +128,9 @@ class ReviewService:
 
     def _result_review(self, col, row):
         # 讀出BOM檔案
-        bom_data, mapping_comment = utils.read_files(self.bom_path, self.database_path)
+        bom_data, mapping_comment = utils.review_files(
+            self.bom_path, self.database_path
+        )
         if "Total count:" not in str(bom_data.iloc[0, 0]):
             raise KeyError
         # 新增說明欄位
