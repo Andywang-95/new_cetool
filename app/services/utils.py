@@ -2,18 +2,18 @@ import datetime
 import os
 from copy import copy
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Protection
 from openpyxl.utils import column_index_from_string
-from openpyxl.workbook.workbook import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
 
 
-# 確認 maintain 和 mapping 檔案的狀態
 def check_database(database_path):
+    """
+    檢查 mapping.xlsx 和 maintain.xlsx 是否存在及是否被打開
+    """
     mapping_file = os.path.join(database_path, "mapping.xlsx")
     maintain_file = os.path.join(database_path, "maintain.xlsx")
     lock_mapping_file = os.path.join(database_path, "~$mapping.xlsx")
@@ -32,6 +32,9 @@ def check_database(database_path):
 
 
 def check_bom(bom_path):
+    """
+    確認 bom_path 不為空且檔案存在且格式正確
+    """
     # 先檢查 bom_path
     if not bom_path:
         return "Error: \n\tBOM 檔案路徑為空！"
@@ -42,7 +45,10 @@ def check_bom(bom_path):
         return f"Error: \n\tBOM 檔案格式錯誤，請選擇 Excel 檔案 \n\t\t→ {bom_path}"
 
 
-def change_df(bom_path):
+def read_files(bom_path, database_path):
+    """
+    讀取 BOM 原始 xls 或 xlsx 檔案並轉換為 DataFrame；同時加載 mapping.xlsx 為Series
+    """
     suffix = Path(bom_path).suffix.lower()
     bom_df = pd.DataFrame()
     if suffix == ".xls":
@@ -51,28 +57,48 @@ def change_df(bom_path):
         bom_df = pd.DataFrame([line.split("\t") for line in raw_data])
     elif suffix == ".xlsx":
         bom_df = pd.read_excel(bom_path, header=None)
-    return bom_df
+
+    mapping_df = pd.read_excel(f"{database_path}/mapping.xlsx")
+    mapping_comment = mapping_df.set_index("料號")["說明"]
+    return bom_df, mapping_comment
 
 
-def correct_comment(row, method):
-    if method == "main":
-        if row["Action"] == "Add":
-            return row["raw_comment"]
-        elif (
-            pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]
-        ):
-            return "同主料"
-        else:
-            return row["raw_comment"]
-    elif method == "system":
-        if pd.notna(row["主件料號"]):
-            return row["raw_comment"]
-        elif (
-            pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]
-        ):
-            return "同主料"
-        else:
-            return row["raw_comment"]
+def load(path, name=None):
+    """載入工作簿與工作表"""
+    wb = load_workbook(path)
+    ws = wb[name] if name else wb.active
+    assert ws is not None  # 這裡告訴 Pylance ws 一定不是 None
+    return wb, ws
+
+
+# --- 下方為 comment 的處理邏輯 ---
+def correct_comment_main(row):
+    if row["Action"] == "Add":
+        return row["raw_comment"]
+    elif pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]:
+        return "同主料"
+    return row["raw_comment"]
+
+
+def correct_comment_system(row):
+    if pd.notna(row["主件料號"]):
+        return row["raw_comment"]
+    elif pd.notna(row["main_comment"]) and row["raw_comment"] == row["main_comment"]:
+        return "同主料"
+    return row["raw_comment"]
+
+
+COMMENT_METHODS = {
+    "main": correct_comment_main,
+    "system": correct_comment_system,
+}
+
+
+def correct_comment(row, method) -> Any:
+    return COMMENT_METHODS[method](row)
+
+
+# ??? comment 處理邏輯 ???P
 
 
 def columns_from_string(col_name: str) -> int:
@@ -118,6 +144,53 @@ def path_detail(bom_path):
     filename = p.name
     filename_stem = p.stem
     return parent_dir, filename, filename_stem
+
+
+def check_and_log(msg, api):
+    """
+    檢查 msg 是否有值，若有則輸出並回傳 True
+    """
+    if msg:
+        api.logs("review", msg)
+        return True
+    return False
+
+
+def other_logs(api, e=None, new_filename=None):
+    if new_filename:
+        api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
+    elif e:
+        api.logs(
+            "review",
+            f"Review failed: \n\t檔案規格不符：\n\t\t缺少必要欄位或辨識值 -> 【{e}】",
+        )
+    else:
+        api.logs("review", "Error: \n\t此檔案可能非 Result BOM，請重新確認檔案規格 ！")
+    api.logs("review", "\n----------------------------------------\n")
+
+
+def save_to_excel(df, parent_dir, filename_stem):
+    """
+    儲存 DataFrame 為新的 Excel 檔案
+    檔名格式： (YYYY-MM-DD){原檔名}.xlsx
+    """
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    new_filename = f"({today}){filename_stem}.xlsx"
+    new_path = parent_dir / new_filename
+    df.to_excel(new_path, index=False, header=False)
+    return new_path, new_filename
+
+
+def find_unmatched(df, mapping_comment, col_idx, api):
+    col_name = df.columns[col_idx]
+    unmatched = df.loc[
+        (~df.iloc[:, col_idx].isin(mapping_comment.index))
+        & (df.iloc[:, col_idx].map(lambda x: isinstance(x, str) and len(x) == 16)),
+        col_name,
+    ]
+    if not unmatched.empty:
+        api.logs("review", f"\t共 {len(unmatched)} 筆待維護料號:")
+        api.logs("review", "\n".join(f"\t\t{pn}" for pn in unmatched))
 
 
 # 更具料號進行maintain各工作表的匹配

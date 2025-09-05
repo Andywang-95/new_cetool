@@ -1,57 +1,63 @@
-# %%
-import datetime
-from copy import copy
-from pathlib import Path
-
 import pandas as pd
-
-# import utils
-from openpyxl.styles import PatternFill
 
 import app.services.utils as utils
 
-# %%
 
+class ReviewService:
+    def __init__(self, data, bom_path, api):
+        self.bom_path = bom_path
+        self.database_path = data["database_path"]
+        self.api = api
+        self.parent_dir, self.filename, self.filename_stem = utils.path_detail(bom_path)
 
-def main_review_service(data, bom_path, api):
-    msg = utils.check_bom(bom_path)
-    if msg:
-        api.logs("review", msg)
-        return
-    # 獲取檔案名稱與父目錄
-    p = Path(bom_path)
-    parent_dir = p.parent
-    filename = p.name
-    filename_stem = p.stem
+    def run(self, col, row, method):
+        """不同模式的共用流程"""
+        msg = utils.check_bom(self.bom_path)
+        if utils.check_and_log(msg, self.api):
+            return
 
-    # 檢查資料庫檔案狀態
-    msg = utils.check_database(data["database_path"])
-    if msg:
-        api.logs("review", msg)
-        return
+        # 檢查資料庫檔案狀態
+        msg = utils.check_database(self.database_path)
+        if utils.check_and_log(msg, self.api):
+            return
 
-    api.logs("review", f"Starting review for 【{filename}】...")
-    try:
-        # 讀出BOM檔案
-        bom_df = utils.change_df(bom_path)
+        self.api.logs("review", f"Starting review for 【{self.filename}】...")
+
+        try:
+            col = utils.columns_from_string(col)
+            self._process(col, row, method)
+        except KeyError as e:
+            utils.other_logs(self.api, e=str(e))
+            return
+        # 重新讀取比對完成的 excel
+        utils.hightlight_comment(
+            f"{self.database_path}/mapping.xlsx", self.new_path, col, row
+        )
+        utils.other_logs(self.api, new_filename=self.new_filename)
+
+    def _process(self, col, row, method):
+        """不同 review 實作差異邏輯"""
+        if method == "main":
+            self._main_review(col, row)
+        elif method == "system":
+            self._system_review(col, row)
+        elif method == "custom":
+            self._custom_review(col, row)
+        elif method == "result":
+            self._result_review(col, row)
+
+    def _main_review(self, col, row):
+        # 讀出 BOM 和 mapping 檔案
+        bom_df, mapping_comment = utils.read_files(self.bom_path, self.database_path)
         # 複製前 5 行原始資料
-        header_rows = bom_df.iloc[:6].copy()
+        header_rows = bom_df.iloc[: row - 1].copy()
         header_rows.loc[header_rows.index[-1], header_rows.shape[1]] = "CE Comment"
         # 設定第 6 行是header，後續是資料內容，並新增 comment 欄位，
-        bom_data = bom_df.iloc[6:].copy()
-        bom_data.columns = bom_df.iloc[5]
+        bom_data = bom_df.iloc[row - 1 :].copy()
+        bom_data.columns = bom_df.iloc[row - 2]
         bom_data["group"] = (bom_data["Action"] == "Add").cumsum()
-        # 讀出mapping檔案
-        mapping_df = pd.read_excel(f"{data['database_path']}/mapping.xlsx")
-        mapping_comment = mapping_df.set_index("料號")["說明"]
-        # 計算不匹配料號
-        unmatched = bom_data.loc[~bom_data["Number"].isin(mapping_df["料號"]), "Number"]
-        print(unmatched)
-        if unmatched.any():
-            api.logs("review", "\t待維護料號:")
-        for part_num in unmatched:
-            if len(part_num) == 16:
-                api.logs("review", f"\t\t{part_num}")
+        # 篩選不在 mapping 且長度為16的料號
+        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
         # 分配對應料號的原始comment
         bom_data["raw_comment"] = bom_data["Number"].map(mapping_comment)
         # 取得群組主料的comment
@@ -70,170 +76,17 @@ def main_review_service(data, bom_path, api):
         final_df = pd.concat(
             [header_rows, pd.DataFrame(bom_data.values)], ignore_index=True
         )
-        # 保存成新的 excel
-        today = datetime.date.today().strftime("%Y-%m-%d")
-        new_filename = f"({today}){filename_stem}.xlsx"
-        new_path = parent_dir / new_filename
-        final_df.to_excel(
-            new_path,
-            index=False,
-            header=False,
+        self.new_path, self.new_filename = utils.save_to_excel(
+            final_df, self.parent_dir, self.filename_stem
         )
-    except KeyError as e:
-        api.logs(
-            "review",
-            f"Review failed: 缺少必要欄位或辨識值 -> 【{e}】\n請確認檔案是否符合規格 ！",
-        )
-        api.logs("review", "\n----------------------------------------\n")
-        return
-    # 重新讀取比對完成的 excel
-    wb_mapping, ws_mapping = utils.load(f"{data['database_path']}/mapping.xlsx")
-    wb_bom, ws_bom = utils.load(new_path)
 
-    # 設定 comment 欄位為黃色
-    last_col = ws_bom.max_column
-    last_row = ws_bom.max_row
-    for cells in ws_bom.iter_cols(min_col=last_col, max_col=last_col, max_row=last_row):
-        for cell in cells:
-            cell.fill = PatternFill(
-                start_color="FFFF00", end_color="FFFF00", fill_type="solid"
-            )
-
-    # 將 mapping 中非黃底的料號取出
-    warning_dict = {}
-    for row in ws_mapping.iter_rows(min_row=2):
-        if row[-1].fill.start_color.rgb != "FFFFFF00":
-            warning_dict[row[0].value] = copy(row[-1].fill)
-
-    # 將 BOM 中的料號與 mapping 中的非黃底料號比對，若有符合則套用填色
-    for row in ws_bom.iter_rows(min_row=7, min_col=3):
-        if row[0].value in warning_dict:
-            row[-1].fill = warning_dict[row[0].value]
-
-    # 儲存修改後的 BOM 檔案
-    wb_bom.save(new_path)
-    api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
-    api.logs("review", "\n----------------------------------------\n")
-
-
-def result_review_service(data, bom_path, api):
-    msg = utils.check_bom(bom_path)
-    if msg:
-        api.logs("review", msg)
-        return
-    # 獲取檔案名稱與父目錄
-    p = Path(bom_path)
-    parent_dir = p.parent
-    filename = p.name
-    filename_stem = p.stem
-
-    # 檢查資料庫檔案狀態
-    msg = utils.check_database(data["database_path"])
-    if msg:
-        api.logs("review", msg)
-        return
-
-    api.logs("review", f"Starting review for 【{filename}】...")
-    # 讀出BOM檔案
-    bom_data = utils.change_df(bom_path)
-    if "Total count:" not in str(bom_data.iloc[0, 0]):
-        api.logs("review", "Error: \n\t此檔案可能非 Result BOM，請重新確認檔案規格 ！")
-        api.logs("review", "\n----------------------------------------\n")
-        return
-
-    # 新增說明欄位
-    new_col_idx = bom_data.shape[1]
-    bom_data[new_col_idx] = ""
-    # 讀出mapping檔案
-    mapping_df = pd.read_excel(f"{data['database_path']}/mapping.xlsx")
-    mapping_comment = mapping_df.set_index("料號")["說明"]
-    # 根據第二欄料號填入對應值
-    bom_data[new_col_idx] = bom_data.iloc[:, 1].map(mapping_comment).fillna("")
-    bom_data.iloc[2, new_col_idx] = "CE Comment"
-    # 計算不匹配料號
-    unmatched = bom_data.loc[~bom_data[1].isin(mapping_df["料號"]), 1]
-    if unmatched.any():
-        api.logs("review", "\t待維護料號:")
-    for part_num in unmatched:
-        if type(part_num) is str and len(part_num) == 16:
-            api.logs("review", f"\t\t{part_num}")
-    # 保存成新的 excel
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    new_filename = f"({today}){filename_stem}.xlsx"
-    new_path = parent_dir / new_filename
-    bom_data.to_excel(
-        new_path,
-        index=False,
-        header=False,
-    )
-
-    # 重新讀取比對完成的 excel
-    wb_mapping, ws_mapping = utils.load(f"{data['database_path']}/mapping.xlsx")
-    wb_bom, ws_bom = utils.load(new_path)
-
-    # 設定 comment 欄位為黃色
-    last_col = ws_bom.max_column
-    last_row = ws_bom.max_row
-    for cells in ws_bom.iter_cols(min_col=last_col, max_col=last_col, max_row=last_row):
-        for cell in cells:
-            cell.fill = PatternFill(
-                start_color="FFFF00", end_color="FFFF00", fill_type="solid"
-            )
-
-    # 將 mapping 中非黃底的料號取出
-    warning_dict = {}
-    for row in ws_mapping.iter_rows(min_row=2):
-        if row[-1].fill.start_color.rgb != "FFFFFF00":
-            warning_dict[row[0].value] = copy(row[-1].fill)
-
-    # 將 BOM 中的料號與 mapping 中的非黃底料號比對，若有符合則套用填色
-    for row in ws_bom.iter_rows(min_row=7, min_col=3):
-        if row[0].value in warning_dict:
-            row[-1].fill = warning_dict[row[0].value]
-
-    # 儲存修改後的 BOM 檔案
-    wb_bom.save(new_path)
-    api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
-    api.logs("review", "\n----------------------------------------\n")
-
-
-def system_bom_review_service(data, bom_path, api):
-    msg = utils.check_bom(bom_path)
-    if msg:
-        api.logs("review", msg)
-        return
-    # 獲取檔案名稱與父目錄
-    p = Path(bom_path)
-    parent_dir = p.parent
-    filename = p.name
-    filename_stem = p.stem
-
-    # 檢查資料庫檔案狀態
-    msg = utils.check_database(data["database_path"])
-    if msg:
-        api.logs("review", msg)
-        return
-
-    api.logs("review", f"Starting review for 【{filename}】...")
-    try:
+    def _system_review(self, col, row):
         # 讀出BOM檔案
-        bom_data = utils.change_df(bom_path)
-        # 設定第 6 行是header，後續是資料內容，並新增 comment 欄位，
+        bom_data, mapping_comment = utils.read_files(self.bom_path, self.database_path)
         bom_data.columns = bom_data.iloc[0]
         bom_data["group"] = bom_data["主件料號"].notna().cumsum()
-        # 讀出mapping檔案
-        mapping_df = pd.read_excel(f"{data['database_path']}/mapping.xlsx")
-        mapping_comment = mapping_df.set_index("料號")["說明"]
-        # 計算不匹配料號
-        unmatched = bom_data.loc[
-            ~bom_data["元件/替代料號"].isin(mapping_df["料號"]), "元件/替代料號"
-        ]
-        print(unmatched)
-        if unmatched.any():
-            api.logs("review", "\t待維護料號:")
-        for part_num in unmatched:
-            if len(part_num) == 16:
-                api.logs("review", f"\t\t{part_num}")
+        # 篩選不在 mapping 且長度為16的料號
+        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
         # 分配對應料號的原始comment
         bom_data["raw_comment"] = bom_data["元件/替代料號"].map(mapping_comment)
         # 取得群組主料的comment
@@ -248,101 +101,232 @@ def system_bom_review_service(data, bom_path, api):
         )
         bom_data.drop(columns=["group", "raw_comment", "main_comment"], inplace=True)
         bom_data.iloc[0, bom_data.shape[1] - 1] = "CE Comment"
-        # 保存成新的 excel
-        today = datetime.date.today().strftime("%Y-%m-%d")
-        new_filename = f"({today}){filename_stem}.xlsx"
-        new_path = parent_dir / new_filename
-        bom_data.to_excel(new_path, index=False, header=False)
-    except KeyError as e:
-        api.logs(
-            "review",
-            f"Review failed: 缺少必要欄位或辨識值 -> 【{e}】，請確認檔案是否符合規格 ！",
+        self.new_path, self.new_filename = utils.save_to_excel(
+            bom_data, self.parent_dir, self.filename_stem
         )
-        api.logs("review", "\n----------------------------------------\n")
-        return
-    # 重新讀取比對完成的 excel
-    wb_mapping, ws_mapping = utils.load(f"{data['database_path']}/mapping.xlsx")
-    wb_bom, ws_bom = utils.load(new_path)
 
-    # 設定 comment 欄位為黃色
-    last_col = ws_bom.max_column
-    last_row = ws_bom.max_row
-    for cells in ws_bom.iter_cols(min_col=last_col, max_col=last_col, max_row=last_row):
-        for cell in cells:
-            cell.fill = PatternFill(
-                start_color="FFFF00", end_color="FFFF00", fill_type="solid"
-            )
+    def _custom_review(self, col, row):
+        # 讀出BOM檔案
+        bom_data, mapping_comment = utils.read_files(self.bom_path, self.database_path)
+        # 新增說明欄位
+        new_col_idx = bom_data.shape[1]
+        bom_data[new_col_idx] = ""
+        # 根據第二欄料號填入對應值
+        bom_data.iloc[row:, new_col_idx] = (
+            bom_data.iloc[row:, col].map(mapping_comment).fillna("")
+        )
+        # 篩選不在 mapping 且長度為16的料號
+        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
 
-    # 將 mapping 中非黃底的料號取出
-    warning_dict = {}
-    for row in ws_mapping.iter_rows():
-        if row[-1].fill.start_color.rgb != "FFFFFF00":
-            warning_dict[row[0].value] = copy(row[-1].fill)
+        self.new_path, self.new_filename = utils.save_to_excel(
+            bom_data, self.parent_dir, self.filename_stem
+        )
 
-    # 將 BOM 中的料號與 mapping 中的非黃底料號比對，若有符合則套用填色
-    for row in ws_bom.iter_rows(min_row=7, min_col=3):
-        if row[0].value in warning_dict:
-            row[-1].fill = warning_dict[row[0].value]
+    def _result_review(self, col, row):
+        # 讀出BOM檔案
+        bom_data, mapping_comment = utils.read_files(self.bom_path, self.database_path)
+        if "Total count:" not in str(bom_data.iloc[0, 0]):
+            raise KeyError
+        # 新增說明欄位
+        new_col_idx = bom_data.shape[1]
+        # 根據第二欄料號填入對應值
+        bom_data[new_col_idx] = bom_data.iloc[:, col].map(mapping_comment).fillna("")
+        bom_data.iloc[2, new_col_idx] = "CE Comment"
+        # 篩選不在 mapping 且長度為16的料號
+        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
 
-    # 儲存修改後的 BOM 檔案
-    wb_bom.save(new_path)
-    api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
-    api.logs("review", "\n----------------------------------------\n")
+        self.new_path, self.new_filename = utils.save_to_excel(
+            bom_data, self.parent_dir, self.filename_stem
+        )
 
 
-def custom_review_service(data, bom_path, api, cus_col, cus_row):
-    msg = utils.check_bom(bom_path)
-    if msg:
-        api.logs("review", msg)
-        return
+# def main_review_service(data, bom_path, api, main_col, main_row):
+#     msg = utils.check_bom(bom_path)
+#     if utils.check_and_log(msg, api):
+#         return
 
-    parent_dir, filename, filename_stem = utils.path_detail(bom_path)
+#     # 檢查資料庫檔案狀態
+#     msg = utils.check_database(data["database_path"])
+#     if utils.check_and_log(msg, api):
+#         return
 
-    # 檢查資料庫檔案狀態
-    msg = utils.check_database(data["database_path"])
-    if msg:
-        api.logs("review", msg)
-        return
+#     parent_dir, filename, filename_stem = utils.path_detail(bom_path)
 
-    api.logs("review", f"Starting review for 【{filename}】...")
-    # 讀出BOM檔案
-    bom_data = utils.change_df(bom_path)
-    # 新增說明欄位
-    new_col_idx = bom_data.shape[1]
-    bom_data[new_col_idx] = ""
-    # 讀出mapping檔案
-    mapping_df = pd.read_excel(f"{data['database_path']}/mapping.xlsx")
-    mapping_comment = mapping_df.set_index("料號")["說明"]
-    # 根據第二欄料號填入對應值
-    col = utils.columns_from_string(cus_col)
-    bom_data.iloc[cus_row:, new_col_idx] = (
-        bom_data.iloc[cus_row:, col].map(mapping_comment).fillna("")
-    )
-    # 篩選不在 mapping 且長度為16的料號
-    unmatched = bom_data.loc[
-        (~bom_data[col].isin(mapping_df["料號"]))
-        & (bom_data[col].map(lambda x: isinstance(x, str) and len(x) == 16)),
-        col,
-    ]
+#     api.logs("review", f"Starting review for 【{filename}】...")
 
-    if not unmatched.empty:
-        api.logs("review", f"\t共 {len(unmatched)} 筆待維護料號:")
+#     try:
+#         # 讀出 BOM 和 mapping 檔案
+#         bom_df, mapping_comment = utils.read_files(bom_path, data)
+#         # 複製前 5 行原始資料
+#         header_rows = bom_df.iloc[: main_row - 1].copy()
+#         header_rows.loc[header_rows.index[-1], header_rows.shape[1]] = "CE Comment"
+#         # 設定第 6 行是header，後續是資料內容，並新增 comment 欄位，
+#         bom_data = bom_df.iloc[main_row - 1 :].copy()
+#         bom_data.columns = bom_df.iloc[main_row - 2]
+#         bom_data["group"] = (bom_data["Action"] == "Add").cumsum()
+#         col = utils.columns_from_string(main_col)
+#         # 篩選不在 mapping 且長度為16的料號
+#         utils.find_unmatched(bom_data, mapping_comment, col, api)
+#         # 分配對應料號的原始comment
+#         bom_data["raw_comment"] = bom_data["Number"].map(mapping_comment)
+#         # 取得群組主料的comment
+#         main_comment = bom_data[bom_data["Action"] == "Add"].set_index("group")[
+#             "raw_comment"
+#         ]
+#         # 分配主料comment到所有替料
+#         bom_data["main_comment"] = bom_data["group"].map(main_comment)
+#         # 根據條件填入 CE Comment
+#         bom_data["CE Comment"] = bom_data.apply(
+#             utils.correct_comment,
+#             axis=1,
+#             method="main",
+#         )
+#         bom_data.drop(columns=["group", "raw_comment", "main_comment"], inplace=True)
+#         final_df = pd.concat(
+#             [header_rows, pd.DataFrame(bom_data.values)], ignore_index=True
+#         )
+#         new_path, new_filename = utils.save_to_excel(
+#             final_df, parent_dir, filename_stem
+#         )
+#     except KeyError as e:
+#         utils.other_logs(api, e=str(e))
+#         return
 
-    unmatched.apply(lambda pn: api.logs("review", f"\t\t{pn}"))
-    # 保存成新的 excel
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    new_filename = f"({today}){filename_stem}.xlsx"
-    new_path = parent_dir / new_filename
-    bom_data.to_excel(
-        new_path,
-        index=False,
-        header=False,
-    )
+#     # 重新讀取比對完成的 excel
+#     utils.hightlight_comment(
+#         f"{data['database_path']}/mapping.xlsx",
+#         new_path,
+#         col,
+#         main_row,
+#     )
 
-    # 重新讀取比對完成的 excel
-    utils.hightlight_comment(
-        f"{data['database_path']}/mapping.xlsx", new_path, col, cus_row
-    )
+#     utils.other_logs(api, new_filename=new_filename)
 
-    api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
-    api.logs("review", "\n----------------------------------------\n")
+
+# def result_review_service(data, bom_path, api, result_col, result_row):
+#     msg = utils.check_bom(bom_path)
+#     if utils.check_and_log(msg, api):
+#         return
+
+#     # 檢查資料庫檔案狀態
+#     msg = utils.check_database(data["database_path"])
+#     if utils.check_and_log(msg, api):
+#         return
+
+#     parent_dir, filename, filename_stem = utils.path_detail(bom_path)
+
+#     api.logs("review", f"Starting review for 【{filename}】...")
+#     try:
+#         # 讀出BOM檔案
+#         bom_data, mapping_comment = utils.read_files(bom_path, data)
+#         if "Total count:" not in str(bom_data.iloc[0, 0]):
+#             raise KeyError
+#         # 新增說明欄位
+#         new_col_idx = bom_data.shape[1]
+#         # 根據第二欄料號填入對應值
+#         col = utils.columns_from_string(result_col)
+#         bom_data[new_col_idx] = bom_data.iloc[:, col].map(mapping_comment).fillna("")
+#         bom_data.iloc[2, new_col_idx] = "CE Comment"
+#         # 篩選不在 mapping 且長度為16的料號
+#         utils.find_unmatched(bom_data, mapping_comment, col, api)
+
+#         new_path, new_filename = utils.save_to_excel(
+#             bom_data, parent_dir, filename_stem
+#         )
+#     except KeyError as e:
+#         utils.other_logs(api, e=str(e))
+#         return
+#     # 重新讀取比對完成的 excel
+#     utils.hightlight_comment(
+#         f"{data['database_path']}/mapping.xlsx", new_path, col, result_row
+#     )
+#     utils.other_logs(api, new_filename=new_filename)
+
+
+# def system_bom_review_service(data, bom_path, api, system_col, system_row):
+#     msg = utils.check_bom(bom_path)
+#     if utils.check_and_log(msg, api):
+#         return
+
+#     # 檢查資料庫檔案狀態
+#     msg = utils.check_database(data["database_path"])
+#     if utils.check_and_log(msg, api):
+#         return
+
+#     parent_dir, filename, filename_stem = utils.path_detail(bom_path)
+
+#     api.logs("review", f"Starting review for 【{filename}】...")
+#     try:
+#         # 讀出BOM檔案
+#         bom_data, mapping_comment = utils.read_files(bom_path, data)
+#         bom_data.columns = bom_data.iloc[0]
+#         bom_data["group"] = bom_data["主件料號"].notna().cumsum()
+#         col = utils.columns_from_string(system_col)
+#         # 篩選不在 mapping 且長度為16的料號
+#         utils.find_unmatched(bom_data, mapping_comment, col, api)
+#         # 分配對應料號的原始comment
+#         bom_data["raw_comment"] = bom_data["元件/替代料號"].map(mapping_comment)
+#         # 取得群組主料的comment
+#         main_comment = bom_data[bom_data["主件料號"].notna()].set_index("group")[
+#             "raw_comment"
+#         ]
+#         # 分配主料comment到所有替料
+#         bom_data["main_comment"] = bom_data["group"].map(main_comment)
+#         # 根據條件填入 CE Comment
+#         bom_data["CE Comment"] = bom_data.apply(
+#             utils.correct_comment, axis=1, method="system"
+#         )
+#         bom_data.drop(columns=["group", "raw_comment", "main_comment"], inplace=True)
+#         bom_data.iloc[0, bom_data.shape[1] - 1] = "CE Comment"
+#         new_path, new_filename = utils.save_to_excel(
+#             bom_data, parent_dir, filename_stem
+#         )
+#     except KeyError as e:
+#         utils.other_logs(api, e=str(e))
+#         return
+
+#     # 重新讀取比對完成的 excel
+#     utils.hightlight_comment(
+#         f"{data['database_path']}/mapping.xlsx",
+#         new_path,
+#         col,
+#         system_row,
+#     )
+
+#     utils.other_logs(api, new_filename=new_filename)
+
+
+# def custom_review_service(data, bom_path, api, cus_col, cus_row):
+#     msg = utils.check_bom(bom_path)
+#     if utils.check_and_log(msg, api):
+#         return
+
+#     # 檢查資料庫檔案狀態
+#     msg = utils.check_database(data["database_path"])
+#     if utils.check_and_log(msg, api):
+#         return
+
+#     parent_dir, filename, filename_stem = utils.path_detail(bom_path)
+
+#     api.logs("review", f"Starting review for 【{filename}】...")
+#     # 讀出BOM檔案
+#     bom_data, mapping_comment = utils.read_files(bom_path, data)
+#     # 新增說明欄位
+#     new_col_idx = bom_data.shape[1]
+#     bom_data[new_col_idx] = ""
+#     # 根據第二欄料號填入對應值
+#     col = utils.columns_from_string(cus_col)
+#     bom_data.iloc[cus_row:, new_col_idx] = (
+#         bom_data.iloc[cus_row:, col].map(mapping_comment).fillna("")
+#     )
+#     # 篩選不在 mapping 且長度為16的料號
+#     utils.find_unmatched(bom_data, mapping_comment, col, api)
+
+#     new_path, new_filename = utils.save_to_excel(bom_data, parent_dir, filename_stem)
+
+#     # 重新讀取比對完成的 excel
+#     utils.hightlight_comment(
+#         f"{data['database_path']}/mapping.xlsx", new_path, col, cus_row
+#     )
+
+#     utils.other_logs(api, new_filename=new_filename)

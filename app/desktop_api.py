@@ -5,12 +5,7 @@ from typing import Optional
 import webview
 from flask import Flask
 
-from app.services.review import (
-    custom_review_service,
-    main_review_service,
-    result_review_service,
-    system_bom_review_service,
-)
+from app.services.review import ReviewService
 
 from .services import db_settings
 
@@ -49,13 +44,14 @@ class Api:
 
     def run_review(self, method, bom_path, col, row):
         try:
+            review = ReviewService(self.app.config, bom_path, self)
             if method == "BOM_TipTop_PTC":
-                main_review_service(self.app.config, bom_path, self, "C", 7)
+                review.run("C", 7, "main")
             elif method == "Result":
-                result_review_service(self.app.config, bom_path, self, "B", 5)
+                review.run("B", 5, "result")
             elif method == "系統BOM":
-                system_bom_review_service(self.app.config, bom_path, self, "C", 2)
+                review.run("C", 2, "system")
             elif method == "自定義":
-                custom_review_service(self.app.config, bom_path, self, col, int(row))
+                review.run(col, int(row), "custom")
         except Exception as e:
-            self.logs("review", f"Review failed: {traceback.format_exc()}")
+            self.logs("review", f"Review failed: \n{traceback.format_exc()}")
