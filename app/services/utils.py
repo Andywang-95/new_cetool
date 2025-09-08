@@ -41,11 +41,11 @@ def check_bom(bom_path):
     bom_file = Path(bom_path)
     if not bom_file.exists():
         return f"Error: \n\tBOM 檔案不存在 \n\t\t→ {bom_path}"
-    if bom_file.suffix.lower() not in [".xls", ".xlsx"]:
+    elif bom_file.suffix.lower() not in [".xls", ".xlsx"]:
         return f"Error: \n\tBOM 檔案格式錯誤，請選擇 Excel 檔案 \n\t\t→ {bom_path}"
 
 
-def review_files(bom_path, database_path):
+def read_files(bom_path, database_path):
     """
     讀取 BOM 原始 xls 或 xlsx 檔案並轉換為 DataFrame；同時加載 mapping.xlsx 為Series
     """
@@ -60,7 +60,7 @@ def review_files(bom_path, database_path):
 
     mapping_df = pd.read_excel(f"{database_path}/mapping.xlsx")
     mapping_comment = mapping_df.set_index("料號")["說明"]
-    return bom_df, mapping_comment
+    return bom_df, mapping_comment, mapping_df
 
 
 def load(path, name=None):
@@ -146,27 +146,26 @@ def path_detail(bom_path):
     return parent_dir, filename, filename_stem
 
 
-def check_and_log(msg, api):
+def check_and_log(msg, log):
     """
     檢查 msg 是否有值，若有則輸出並回傳 True
     """
     if msg:
-        api.logs("review", msg)
+        log(msg)
         return True
     return False
 
 
-def other_logs(api, e=None, new_filename=None):
+def review_other_logs(log, e=None, new_filename=None):
     if new_filename:
-        api.logs("review", f"Review completed!\nSaved as 【{new_filename}】")
+        log(f"Review completed!\nSaved as 【{new_filename}】")
     elif e:
-        api.logs(
-            "review",
+        log(
             f"Review failed: \n\t檔案規格不符：\n\t\t缺少必要欄位或辨識值 -> 【{e}】",
         )
     else:
-        api.logs("review", "Error: \n\t此檔案可能非 Result BOM，請重新確認檔案規格 ！")
-    api.logs("review", "\n----------------------------------------\n")
+        log("Error: \n\t此檔案可能非 Result BOM，請重新確認檔案規格 ！")
+    log("\n----------------------------------------\n")
 
 
 def save_to_excel(df, parent_dir, filename_stem):
@@ -181,7 +180,7 @@ def save_to_excel(df, parent_dir, filename_stem):
     return new_path, new_filename
 
 
-def find_unmatched(df, mapping_comment, col_idx, api):
+def find_unmatched(df, mapping_comment, col_idx, log):
     col_name = df.columns[col_idx]
     unmatched = df.loc[
         (~df.iloc[:, col_idx].isin(mapping_comment.index))
@@ -189,6 +188,10 @@ def find_unmatched(df, mapping_comment, col_idx, api):
         col_name,
     ]
     if not unmatched.empty:
+        log(f"\t共 {len(unmatched)} 筆待維護料號:")
+        log("\n".join(f"\t\t{pn}" for pn in unmatched))
+
+
         api.logs("review", f"\t共 {len(unmatched)} 筆待維護料號:")
         api.logs("review", "\n".join(f"\t\t{pn}" for pn in unmatched))
 

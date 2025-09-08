@@ -1,3 +1,5 @@
+from functools import partial
+
 import pandas as pd
 
 import app.services.utils as utils
@@ -8,32 +10,33 @@ class ReviewService:
         self.bom_path = bom_path
         self.database_path = data["database_path"]
         self.api = api
+        self.log = partial(self.api.logs, "review")
         self.parent_dir, self.filename, self.filename_stem = utils.path_detail(bom_path)
 
     def run(self, col, row, method):
         """不同模式的共用流程"""
         msg = utils.check_bom(self.bom_path)
-        if utils.check_and_log(msg, self.api):
+        if utils.check_and_log(msg, self.log):
             return
 
         # 檢查資料庫檔案狀態
         msg = utils.check_database(self.database_path)
-        if utils.check_and_log(msg, self.api):
+        if utils.check_and_log(msg, self.log):
             return
 
-        self.api.logs("review", f"Starting review for 【{self.filename}】...")
+        self.log(f"Starting review for 【{self.filename}】...")
 
         try:
             col = utils.columns_from_string(col)
             self._process(col, row, method)
         except KeyError as e:
-            utils.other_logs(self.api, e=str(e))
+            utils.review_other_logs(self.log, e=str(e))
             return
         # 重新讀取比對完成的 excel
         utils.hightlight_comment(
             f"{self.database_path}/mapping.xlsx", self.new_path, col, row
         )
-        utils.other_logs(self.api, new_filename=self.new_filename)
+        utils.review_other_logs(self.log, new_filename=self.new_filename)
 
     def _process(self, col, row, method):
         """不同 review 實作差異邏輯"""
@@ -48,7 +51,7 @@ class ReviewService:
 
     def _main_review(self, col, row):
         # 讀出 BOM 和 mapping 檔案
-        bom_df, mapping_comment = utils.review_files(self.bom_path, self.database_path)
+        bom_df, mapping_comment, _ = utils.read_files(self.bom_path, self.database_path)
         # 複製前 5 行原始資料
         header_rows = bom_df.iloc[: row - 1].copy()
         header_rows.loc[header_rows.index[-1], header_rows.shape[1]] = "CE Comment"
@@ -57,7 +60,7 @@ class ReviewService:
         bom_data.columns = bom_df.iloc[row - 2]
         bom_data["group"] = (bom_data["Action"] == "Add").cumsum()
         # 篩選不在 mapping 且長度為16的料號
-        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
+        utils.find_unmatched(bom_data, mapping_comment, col, self.log)
         # 分配對應料號的原始comment
         bom_data["raw_comment"] = bom_data["Number"].map(mapping_comment)
         # 取得群組主料的comment
@@ -82,13 +85,13 @@ class ReviewService:
 
     def _system_review(self, col, row):
         # 讀出BOM檔案
-        bom_data, mapping_comment = utils.review_files(
+        bom_data, mapping_comment, _ = utils.read_files(
             self.bom_path, self.database_path
         )
         bom_data.columns = bom_data.iloc[0]
         bom_data["group"] = bom_data["主件料號"].notna().cumsum()
         # 篩選不在 mapping 且長度為16的料號
-        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
+        utils.find_unmatched(bom_data, mapping_comment, col, self.log)
         # 分配對應料號的原始comment
         bom_data["raw_comment"] = bom_data["元件/替代料號"].map(mapping_comment)
         # 取得群組主料的comment
@@ -109,7 +112,7 @@ class ReviewService:
 
     def _custom_review(self, col, row):
         # 讀出BOM檔案
-        bom_data, mapping_comment = utils.review_files(
+        bom_data, mapping_comment, _ = utils.read_files(
             self.bom_path, self.database_path
         )
         # 新增說明欄位
@@ -120,7 +123,7 @@ class ReviewService:
             bom_data.iloc[row:, col].map(mapping_comment).fillna("")
         )
         # 篩選不在 mapping 且長度為16的料號
-        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
+        utils.find_unmatched(bom_data, mapping_comment, col, self.log)
 
         self.new_path, self.new_filename = utils.save_to_excel(
             bom_data, self.parent_dir, self.filename_stem
@@ -128,7 +131,7 @@ class ReviewService:
 
     def _result_review(self, col, row):
         # 讀出BOM檔案
-        bom_data, mapping_comment = utils.review_files(
+        bom_data, mapping_comment, _ = utils.read_files(
             self.bom_path, self.database_path
         )
         if "Total count:" not in str(bom_data.iloc[0, 0]):
@@ -139,7 +142,7 @@ class ReviewService:
         bom_data[new_col_idx] = bom_data.iloc[:, col].map(mapping_comment).fillna("")
         bom_data.iloc[2, new_col_idx] = "CE Comment"
         # 篩選不在 mapping 且長度為16的料號
-        utils.find_unmatched(bom_data, mapping_comment, col, self.api)
+        utils.find_unmatched(bom_data, mapping_comment, col, self.log)
 
         self.new_path, self.new_filename = utils.save_to_excel(
             bom_data, self.parent_dir, self.filename_stem
