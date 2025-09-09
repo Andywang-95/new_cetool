@@ -44,7 +44,7 @@ class Api:
 
     def run_review(self, method, bom_path, col, row):
         try:
-            review = ReviewService(self.app.config, bom_path, self)
+            review = ReviewService(self.app.config, bom_path, self.logs)
             if method == "BOM_TipTop_PTC":
                 review.run("C", 7, "main")
             elif method == "Result":
