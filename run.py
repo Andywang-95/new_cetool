@@ -18,8 +18,9 @@ if __name__ == "__main__":
     flask_thread.start()
 
     api = Api(app)
+    js_api = JsApi(api)
     window = webview.create_window(
-        "CE BOM Tool", "http://127.0.0.1:5001", js_api=JsApi(api)
+        "CE BOM Tool", "http://127.0.0.1:5001", js_api=js_api
     )
     api.window = window
     webview.start(debug=True)

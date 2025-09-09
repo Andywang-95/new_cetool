@@ -58,19 +58,11 @@ class Api:
 
 
 class JsApi:
-    """單純暴露給前端用的 API"""
+    """
+    暴露接口給前端使用
+    """
 
     def __init__(self, api: Api):
-        self.api = api
-
-    def select_bom_path(self):
-        return self.api.select_bom_path()
-
-    def save_settings(self, settings: dict):
-        return self.api.save_settings(settings)
-
-    def run_review(self, method, bom_path, col, row):
-        return self.api.run_review(method, bom_path, col, row)
-
-    def run_import(self, method, bom_path):
-        return self.api.run_import(method, bom_path)
+        self.select_bom_path = api.select_bom_path
+        self.save_settings = api.save_settings
+        self.run_review = api.run_review
