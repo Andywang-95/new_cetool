@@ -55,3 +55,22 @@ class Api:
                 review.run(col, int(row), "custom")
         except Exception as e:
             self.logs("review", f"Review failed: \n{traceback.format_exc()}")
+
+
+class JsApi:
+    """單純暴露給前端用的 API"""
+
+    def __init__(self, api: Api):
+        self.api = api
+
+    def select_bom_path(self):
+        return self.api.select_bom_path()
+
+    def save_settings(self, settings: dict):
+        return self.api.save_settings(settings)
+
+    def run_review(self, method, bom_path, col, row):
+        return self.api.run_review(method, bom_path, col, row)
+
+    def run_import(self, method, bom_path):
+        return self.api.run_import(method, bom_path)
