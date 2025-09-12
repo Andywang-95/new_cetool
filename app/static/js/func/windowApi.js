@@ -29,6 +29,15 @@ export default function windowApi() {
         return;
       }
     },
+    runImport() {
+      if (window.pywebview && window.pywebview.api) {
+        console.log("Running import...");
+        return window.pywebview.api.run_import(
+          this.importMode,
+          this.importBomPath
+        );
+      } else {
+        console.log("Mock runImport", this.importMode, this.reviewBomPath);
         return;
       }
     },

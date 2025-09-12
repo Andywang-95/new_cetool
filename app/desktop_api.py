@@ -5,6 +5,7 @@ from typing import Optional
 import webview
 from flask import Flask
 
+from app.services._import import ImportService
 from app.services.review import ReviewService
 
 from .services import db_settings
@@ -56,6 +57,16 @@ class Api:
         except Exception as e:
             self.logs("review", f"Review failed: \n{traceback.format_exc()}")
 
+    def run_import(self, method, bom_path):
+        try:
+            importer = ImportService(self.app.config, bom_path, self.logs)
+            if method == "BOM_TipTop_PTC":
+                importer.run("main")
+            elif method == "系統BOM":
+                importer.run("system")
+        except Exception as e:
+            self.logs("import", f"Import failed: \n{traceback.format_exc()}")
+
 
 class JsApi:
     """
@@ -66,3 +77,4 @@ class JsApi:
         self.select_bom_path = api.select_bom_path
         self.save_settings = api.save_settings
         self.run_review = api.run_review
+        self.run_import = api.run_import

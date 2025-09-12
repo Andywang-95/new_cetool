@@ -63,10 +63,10 @@ def read_files(bom_path, database_path):
     return bom_df, mapping_comment, mapping_df
 
 
-def load(path, name=None):
+def load(path):
     """載入工作簿與工作表"""
     wb = load_workbook(path)
-    ws = wb[name] if name else wb.active
+    ws = wb.active
     assert ws is not None  # 這裡告訴 Pylance ws 一定不是 None
     return wb, ws
 
@@ -192,8 +192,21 @@ def find_unmatched(df, mapping_comment, col_idx, log):
         log("\n".join(f"\t\t{pn}" for pn in unmatched))
 
 
-        api.logs("review", f"\t共 {len(unmatched)} 筆待維護料號:")
-        api.logs("review", "\n".join(f"\t\t{pn}" for pn in unmatched))
+def read_db_files(database_path):
+    mapping_path = os.path.join(database_path, "mapping.xlsx")
+    maintain_path = os.path.join(database_path, "maintain.xlsx")
+    wb_mapping, ws_mapping = load(mapping_path)
+    wb_maintain, ws_maintain = load(maintain_path)
+    return (
+        (wb_mapping, ws_mapping),
+        wb_maintain,
+        mapping_path,
+        maintain_path,
+    )
+
+
+def import_files(bom_path):
+    pass
 
 
 # 更具料號進行maintain各工作表的匹配
@@ -305,33 +318,20 @@ def match(pn):
     for name in maintain_dict:
         if pn[:4] in maintain_dict[name]:
             return name
-    return "Others"
+        return "Others"
 
 
 # 將對應料號相關資料寫入maintain各個資料表中
-def to_maintain(wb, d):
-    count = {
-        "電子料(1)": 0,
-        "電子料(2)": 0,
-        "電子料(R,C)": 0,
-        "機構料件": 0,
-        "Others": 0,
-    }
-    for i in d:
-        name = match(i)
-        ws_maintain = wb[name]
-        if i not in [p.value for p in ws_maintain["A"]]:
-            ws_maintain.append(
-                [i, d[i][0].value, d[i][1].value, d[i][2].value, datetime.date.today()]
-            )
-            ws_maintain["A"][-1].protection = Protection(locked=False)
-            ws_maintain["D"][-1].protection = Protection(locked=False)
-            ws_maintain["D"][-1].fill = copy(d[i][2].fill)
-            ws_maintain["D"][-1].font = copy(d[i][2].font)
-            ws_maintain["E"][-1].protection = Protection(locked=False)
-            ws_maintain.protection.enable()
-            count[name] += 1
-    return count
+def to_maintain(wb, pn_info, cell_bom):
+    name = match(pn_info[0])
+    ws_maintain = wb[name]
+    ws_maintain.append([*pn_info, datetime.date.today()])
+    ws_maintain["A"][-1].protection = Protection(locked=False)
+    ws_maintain["D"][-1].protection = Protection(locked=False)
+    ws_maintain["D"][-1].fill = copy(cell_bom.fill)
+    ws_maintain["E"][-1].protection = Protection(locked=False)
+    ws_maintain.protection.enable()
+    print(f"{pn_info[0]}匯入")
 
 
 # 轉換資料為字典形態(鍵為料號[A列],值為儲存格位置[C列])
