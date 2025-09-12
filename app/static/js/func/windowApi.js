@@ -19,13 +19,16 @@ export default function windowApi() {
       if (window.pywebview && window.pywebview.api) {
         console.log("Running review...");
         return window.pywebview.api.run_review(
-          this.selectedMode,
+          this.reviewMode,
           this.reviewBomPath,
           this.custom.col,
           this.custom.row
         );
       } else {
-        console.log("Mock runReview", this.selectedMode, this.reviewBomPath);
+        console.log("Mock runReview", this.reviewMode, this.reviewBomPath);
+        return;
+      }
+    },
         return;
       }
     },

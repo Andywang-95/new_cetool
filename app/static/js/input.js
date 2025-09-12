@@ -8,7 +8,8 @@ Alpine.store("logStore", logStore);
 
 Alpine.data("initData", () => ({
   tab: "review",
-  selectedMode: "BOM_TipTop_PTC",
+  reviewMode: "BOM_TipTop_PTC",
+  importMode: "BOM_TipTop_PTC",
   showModal: false,
   showSettingModal: false,
   reviewBomPath: "",
