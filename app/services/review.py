@@ -9,7 +9,7 @@ class ReviewService:
     def __init__(self, data, bom_path, log_func):
         self.bom_path = bom_path
         self.database_path = data["database_path"]
-        self.log = partial(log_func.logs, "review")
+        self.log = partial(log_func, "review")
         self.parent_dir, self.filename, self.filename_stem = utils.path_detail(bom_path)
 
     def run(self, col, row, method):
