@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+/* 自訂表格樣式 */
+.log-textarea table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.log-textarea th,
+.log-textarea td {
+  border: 1px solid #ccc;
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.log-textarea th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}

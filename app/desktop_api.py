@@ -6,6 +6,7 @@ import webview
 from flask import Flask
 
 from app.services._import import ImportService
+from app.services._update import UpdateService
 from app.services.review import ReviewService
 
 from .services import db_settings
@@ -67,6 +68,13 @@ class Api:
         except Exception as e:
             self.logs("import", f"Import failed: \n{traceback.format_exc()}")
 
+    def run_update(self):
+        try:
+            update = UpdateService(self.app.config, self.logs)
+            update.run()
+        except Exception as e:
+            self.logs("update", f"Update failed: \n{traceback.format_exc()}")
+
 
 class JsApi:
     """
@@ -78,3 +86,4 @@ class JsApi:
         self.save_settings = api.save_settings
         self.run_review = api.run_review
         self.run_import = api.run_import
+        self.run_update = api.run_update

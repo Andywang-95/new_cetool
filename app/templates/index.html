@@ -151,11 +151,11 @@
             Start Review
           </button>
         </div>
-        <textarea
+        <div
           readonly
           class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
-          x-text="$store.logStore.reviewLogs.join('\n')"
-        ></textarea>
+          x-html="$store.logStore.reviewLogs.join('<br/>')"
+        ></div>
       </div>
 
       <!-- Import Tab -->
@@ -208,25 +208,24 @@
             Start Import
           </button>
         </div>
-        <textarea
+        <div
           readonly
-          x-text="$store.logStore.importLogs.join('\n')"
           class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
-        ></textarea>
+          x-html="$store.logStore.importLogs.join('<br/>')"
+        ></div>
       </div>
 
       <!-- Update Tab -->
       <div x-show="tab === 'update'" class="tab-content">
         <div class="mb-4">
-          <button class="px-4 py-2 bg-purple-600 text-white rounded">
+          <button class="px-4 py-2 bg-purple-600 text-white rounded" @click="runUpdate()">
             Start Update
           </button>
         </div>
-        <textarea
-          readonly
-          x-text="$store.logStore.updateLogs.join('\n')"
+        <div
           class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
-        ></textarea>
+          x-html="$store.logStore.updateLogs.join('<br/>')"
+        ></div>
       </div>
 
       <!-- 設定參數 Modal -->

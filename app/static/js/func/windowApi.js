@@ -41,5 +41,14 @@ export default function windowApi() {
         return;
       }
     },
+    runUpdate() {
+      if (window.pywebview && window.pywebview.api) {
+        console.log("Running update...");
+        return window.pywebview.api.run_update();
+      } else {
+        console.log("Mock runUpdate");
+        return;
+      }
+    },
   };
 }
