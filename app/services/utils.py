@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 from copy import copy
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Protection
 from openpyxl.utils import column_index_from_string
+from tabulate import tabulate
 
 
 def check_database(database_path):
@@ -98,7 +100,7 @@ def correct_comment(row, method) -> Any:
     return COMMENT_METHODS[method](row)
 
 
-# ??? comment 處理邏輯 ???P
+# ??? comment 處理邏輯結束 ???P
 
 
 def columns_from_string(col_name: str) -> int:
@@ -158,14 +160,14 @@ def check_and_log(msg, log):
 
 def review_other_logs(log, e=None, new_filename=None):
     if new_filename:
-        log(f"Review completed!\nSaved as 【{new_filename}】")
+        log(f"<p>Review completed!<br/>Saved as 【{new_filename}】</p>")
     elif e:
         log(
-            f"Review failed: \n\t檔案規格不符：\n\t\t缺少必要欄位或辨識值 -> 【{e}】",
+            f"<p>Review failed: <br/>&emsp;檔案規格不符：<br/>&emsp;&emsp;缺少必要欄位或辨識值 -> 【{e}】</p>"
         )
     else:
-        log("Error: \n\t此檔案可能非 Result BOM，請重新確認檔案規格 ！")
-    log("\n----------------------------------------\n")
+        log("<p>Error: <br/>&emsp;此檔案可能非 Result BOM，請重新確認檔案規格 ！</p>")
+    log("<hr/>")
 
 
 def save_to_excel(df, parent_dir, filename_stem):
@@ -188,8 +190,11 @@ def find_unmatched(df, mapping_comment, col_idx, log):
         col_name,
     ]
     if not unmatched.empty:
-        log(f"\t共 {len(unmatched)} 筆待維護料號:")
-        log("\n".join(f"\t\t{pn}" for pn in unmatched))
+        log(f"<p>&emsp;共 {len(unmatched)} 筆待維護料號:</p>")
+        # 將單列資料包成 list，再生成 HTML 表格
+        for pn in unmatched:
+            html_table = tabulate([[pn]], headers=[], tablefmt="html")
+            log(html_table)
 
 
 def read_db_files(database_path):
@@ -346,40 +351,26 @@ def to_dict(ws):
     return dict_i
 
 
-# 更新mapping時，選擇要上傳更新的maintain工作表
-# def sheet_name():
-#     sheet_name = input('''請輸入要更新的工作表對應代碼：
-#                         1 : 機構料件
-#                         2 : Jack
-#                         3 : Laney
-#                         4 : Andy
-#                         5 : Others
-# 請輸入代碼→''')
-#     if sheet_name == '1':
-#         return '機構料件'
-#     elif sheet_name == '2':
-#         return 'Jack'
-#     elif sheet_name == '3':
-#         return 'Laney'
-#     elif sheet_name == '4':
-#         return 'Andy'
-#     elif sheet_name == '5':
-#         return 'Others'
-#     else:
-#         return '輸入錯誤'
+def clean_and_save_new_versions(wb_mapping, wb_maintain):
+    """刪除舊的日期版本，只保留最新一份"""
 
-# # 確認開始執行程式
-# def start():
-#     while True:
-#         answer = input('請輸入 start 開始執行 \n')
-#         if answer != 'start':
-#             os._exit(0)
-#         else:
-#             break
+    # 取得 history 資料夾
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    history_dir = os.path.join(base_dir, "history")
+    os.makedirs(history_dir, exist_ok=True)
 
-# # 確認退出程式
-# def exit():
-#     while True:
-#         answer = input('退出請按 Enter \n')
-#         if answer == '':
-#             os._exit(0)
+    today = datetime.date.today().isoformat()
+    mapping_name = f"{today}_mapping.xlsx"
+    maintain_name = f"{today}_maintain.xlsx"
+
+    # 刪除舊版本
+    for fname in os.listdir(history_dir):
+        if fname.endswith("_mapping.xlsx") or fname.endswith("_maintain.xlsx"):
+            os.remove(os.path.join(history_dir, fname))
+
+    # 儲存新版本
+    mapping_path = os.path.join(history_dir, mapping_name)
+    maintain_path = os.path.join(history_dir, maintain_name)
+    wb_mapping.save(mapping_path)
+    wb_maintain.save(maintain_path)
+    return mapping_path, maintain_path

@@ -154,7 +154,7 @@
         <div
           readonly
           class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
-          x-html="$store.logStore.reviewLogs.join('<br/>')"
+          x-html="$store.logStore.reviewLogs.join('')"
         ></div>
       </div>
 
@@ -211,7 +211,7 @@
         <div
           readonly
           class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
-          x-html="$store.logStore.importLogs.join('<br/>')"
+          x-html="$store.logStore.importLogs.join('')"
         ></div>
       </div>
 
@@ -224,7 +224,7 @@
         </div>
         <div
           class="w-full border p-2 rounded bg-gray-50 h-40 overflow-y-auto whitespace-pre-wrap log-textarea"
-          x-html="$store.logStore.updateLogs.join('<br/>')"
+          x-html="$store.logStore.updateLogs.join('')"
         ></div>
       </div>
 

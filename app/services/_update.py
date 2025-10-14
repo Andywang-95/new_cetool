@@ -17,14 +17,14 @@ class UpdateService:
         msg = utils.check_database(self.database_path)
         if utils.check_and_log(msg, self.log):
             return
-        self.log("Starting update...")
+        self.log("<p>Starting update...</p>")
         try:
             self._process()
         except Exception as e:
             self.log(
-                "Error:\n"
-                + str(traceback.format_exc())
-                + "\n----------------------------------------\n"
+                "<p>Error:<br/>"
+                + str(traceback.format_exc()).replace("\n", "<br/>")
+                + "</p><hr/>"
             )
 
     def _process(self):
@@ -67,14 +67,16 @@ class UpdateService:
                             dict_maintain[pn][2].value,
                         ]
                     )
+                    src_fill = copy(dict_maintain[pn][2].fill)
+                    ws_mapping.cell(row=ws_mapping.max_row, column=4).fill = src_fill
                     new.append([pn, dict_maintain[pn][2].value])
             # log 格式化
-            self.log(f"【{name}】：")
+            self.log(f"<p>【{name}】：</p>")
             if new:
-                self.log(f"新增 {len(new)} 筆資料：")
+                self.log(f"<p>新增 {len(new)} 筆資料：</p>")
                 self.log(tabulate(new, headers=["PartNum", "Comment"], tablefmt="html"))
             if upd:
-                self.log(f"\n更新comment {len(upd)} 筆資料：")
+                self.log(f"<p>更新comment {len(upd)} 筆資料：</p>")
                 self.log(
                     tabulate(
                         upd,
@@ -83,15 +85,12 @@ class UpdateService:
                     )
                 )
             if color:
-                self.log(f"\n更新High Light底色 {len(color)} 筆資料")
+                self.log(f"<p>更新High Light底色 {len(color)} 筆資料</p>")
                 self.log(
                     tabulate(color, headers=["PartNum", "Comment"], tablefmt="html")
                 )
 
         ws_mapping.protection.enable()
-        # wb_mapping.save(mapping_path)
-        wb_mapping.save(f"{self.database_path}/mapping.xlsx")
-        wb_maintain.save(f"{self.database_path}/maintain.xlsx")
-        wb_mapping.save(f"{utils.datetime.date.today()}mapping.xlsx")
-        wb_maintain.save(f"{utils.datetime.date.today()}maintain.xlsx")
-        self.log("\n更新完成\n----------------------------------------\n")
+        wb_mapping.save(mapping_path)
+        utils.clean_and_save_new_versions(wb_mapping, wb_maintain)
+        self.log("<p>更新完成</p><hr/>")

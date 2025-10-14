@@ -3,6 +3,7 @@ from functools import partial
 from zipfile import BadZipFile
 
 import pandas as pd
+from tabulate import tabulate
 
 import app.services.utils as utils
 
@@ -17,7 +18,7 @@ class ImportService:
             (self.wb_mapping, self.ws_mapping),
             self.wb_maintain,
             self.mapping_path,
-            self.maintaiin_path,
+            self.maintain_path,
         ) = utils.read_db_files(self.database_path)
         self.bom_df, _, self.mapping_df = utils.read_files(
             self.bom_path, self.database_path
@@ -33,18 +34,17 @@ class ImportService:
         msg = utils.check_database(self.database_path)
         if utils.check_and_log(msg, self.log):
             return
-        self.log(f"Starting import from 【{self.bom_name}】...")
+        self.log(f"<p>Starting import from 【{self.bom_name}】...</p>")
         try:
             self._process(method)
         except BadZipFile:
             self.log(
-                "review",
-                "Import failed: \n\t請確認 mapping.xlsx 和 maintain.xlsx 是否被加密或損毀",
+                "<p>Import failed: <br/>&emsp;請確認 mapping.xlsx 和 maintain.xlsx 是否被加密或損毀</p><hr/>"
             )
             return
         except KeyError as e:
             self.log(
-                f"Import failed: \n\t檔案規格不符：\n\t\t缺少必要欄位或辨識值 -> 【{e}】",
+                f"<p>Import failed: <br/>&emsp;檔案規格不符：<br/>&emsp;&emsp;缺少必要欄位或辨識值 -> 【{e}】</p><hr/>"
             )
             return
 
@@ -96,14 +96,14 @@ class ImportService:
     def _process(self, method):
         missing_pn, result_data = self._bom_detail(method)
         if not missing_pn.empty:
-            self.log(f"以下 {len(missing_pn)} 筆料號 CE Comment 缺失：")
+            self.log(f"<p>以下 {len(missing_pn)} 筆料號 CE Comment 缺失：</p>")
             for number in missing_pn:
-                self.log(f"\t{number}")
-            self.log("--------------------------------\n")
+                self.log(f"&emsp;{number}<br/>")
+            self.log("<hr/>")
 
         wb_bom, ws_bom = utils.load(self.bom_path)
         if not result_data.empty:
-            self.log(f"新增 {len(result_data)} 筆新料號，開始匯入：")
+            self.log(f"<p>新增 {len(result_data)} 筆新料號，開始匯入：</p>")
             for idx, r in result_data.iterrows():
                 """mapping 料號開始匯入"""
                 print(tuple(r))
@@ -114,10 +114,13 @@ class ImportService:
                 cell_mapping.fill = copy(cell_bom.fill)  # type: ignore
                 """maintain 料號開始匯入"""
                 utils.to_maintain(self.wb_maintain, r, cell_bom)
-                self.log(f"\t{r.iloc[0]}")
+                # 將單列資料轉成 list，再用 tabulate 生成無 header 的 HTML 表格
+                html_table = tabulate([r.tolist()], headers=[], tablefmt="html")
+                self.log(html_table)
             self.ws_mapping.protection.enable()
             self.wb_mapping.save(self.mapping_path)
-            self.wb_maintain.save(self.maintaiin_path)
-            self.log("匯入完成\n--------------------------------\n")
+            self.wb_maintain.save(self.maintain_path)
+            utils.clean_and_save_new_versions(self.wb_mapping, self.wb_maintain)
+            self.log("<p>匯入完成</p><hr/>")
         else:
-            self.log("無新料號可匯入\n--------------------------------\n")
+            self.log("<p>無新料號可匯入</p><hr/>")

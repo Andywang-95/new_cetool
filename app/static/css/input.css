@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 /* 自訂表格樣式 */
+.log-textarea {
+  @apply select-text cursor-text;
+}
 .log-textarea table {
   width: 100%;
   border-collapse: collapse;
