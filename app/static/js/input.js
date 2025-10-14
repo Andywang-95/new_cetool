@@ -23,6 +23,15 @@ Alpine.data("initData", () => ({
     const data = await resp.json();
     this.settings = data;
     this.tempSettings = data;
+    this.$watch("$store.logStore.reviewLogs", () => {
+      this.$refs.reviewLog.scrollTop = this.$refs.reviewLog.scrollHeight;
+    });
+    this.$watch("$store.logStore.importLogs", () => {
+      this.$refs.importLog.scrollTop = this.$refs.importLog.scrollHeight;
+    });
+    this.$watch("$store.logStore.updateLogs", () => {
+      this.$refs.updateLog.scrollTop = this.$refs.updateLog.scrollHeight;
+    });
   },
   ...windowApi(),
 }));

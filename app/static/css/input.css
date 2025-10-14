@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 /* 自訂表格樣式 */
+.log-container {
+  @apply flex-1 h-full border rounded p-2 bg-gray-50 overflow-auto;
+  scroll-behavior: smooth;
+}
 .log-textarea {
-  @apply select-text cursor-text;
+  @apply whitespace-pre-wrap select-text cursor-text;
 }
 .log-textarea table {
   width: 100%;

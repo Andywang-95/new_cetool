@@ -3,12 +3,6 @@ export const logStore = {
   importLogs: [],
   updateLogs: [],
   addLog(type, msg) {
-    if (type === "review") {
-      this.reviewLogs.push(msg);
-    } else if (type === "import") {
-      this.importLogs.push(msg);
-    } else if (type === "update") {
-      this.updateLogs.push(msg);
-    }
+    this[`${type}Logs`].push(msg);
   },
 };
