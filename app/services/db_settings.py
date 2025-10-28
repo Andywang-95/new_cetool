@@ -13,7 +13,7 @@ DEFAULT_SETTINGS = {
 
 
 def get_settings_path():
-    appdata = os.getenv("APPDATA") or str(Path.home())
+    appdata = os.getenv("LOCALAPPDATA") or str(Path.home())
     config_dir = os.path.join(appdata, APP_NAME)
     os.makedirs(config_dir, exist_ok=True)
     return os.path.join(config_dir, "settings.json")

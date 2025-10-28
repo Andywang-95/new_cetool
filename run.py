@@ -16,7 +16,7 @@ app = create_app()
 
 
 def start_flask():
-    app.run(port=5001, debug=True, use_reloader=False)
+    app.run(port=5001, use_reloader=False)
 
 
 if __name__ == "__main__":
@@ -36,7 +36,7 @@ if __name__ == "__main__":
             height=int(screen_height * 0.7),
         )
         api.window = window
-        webview.start(debug=True)
+        webview.start()
     except Exception as e:
         import traceback
 
