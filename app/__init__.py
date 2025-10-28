@@ -4,7 +4,7 @@ from app.services import db_settings
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder="templates", static_folder="static")
 
     # 預先載入設定檔（會自動建立）
     app.config.update(db_settings.load_settings())
