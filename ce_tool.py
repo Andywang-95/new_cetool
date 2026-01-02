@@ -1,3 +1,7 @@
+import os
+
+os.environ["PYWEBVIEW_WEBVIEW_BACKEND"] = "cef"
+
 import multiprocessing
 import threading
 
