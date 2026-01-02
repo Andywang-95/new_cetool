@@ -4,6 +4,9 @@ import os
 import threading
 from pathlib import Path
 
+# Force pywebview to use CEF backend instead of WinForms (to avoid CLR/pythonnet issues)
+os.environ["PYWEBVIEW_WEBVIEW_BACKEND"] = "cef"
+
 import webview
 from screeninfo import get_monitors
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Collect pythonnet and clr_loader runtime files (Python.Runtime.dll, clr.pyd, etc..)
 binaries = []
-hiddenimports = ['clr', 'clr_loader', 'pythonnet']
+hiddenimports = ['clr', 'clr_loader', 'pythonnet', 'cefpython3']
 try:
     # Locate and include all pythonnet runtime files
     dist = importlib_metadata.distribution('pythonnet')
