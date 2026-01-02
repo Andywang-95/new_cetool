@@ -4,12 +4,8 @@ from pathlib import Path
 
 APP_NAME = "CE_BOM_Tool"
 DEFAULT_SETTINGS = {
-    "database_path": "/Users/jiahe/Downloads/import",
+    "database_path": "//BOM DATABASE",
 }
-# DEFAULT_SETTINGS = {
-#     "database_path": "//gctfile.gigacomputing.intra/NR2B/NR2B6/共用資料區/BOM DATABASE",
-#     "pn_location": "C7",
-# }
 
 
 def get_settings_path():
