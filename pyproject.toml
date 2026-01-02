@@ -1,7 +1,7 @@
 [project]
 name = "ce-tool"
 version = "0.1.0"
-description = "Add your description here"
+description = "CE BOM Tool - Flask-based desktop application"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

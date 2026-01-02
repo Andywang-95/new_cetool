@@ -1,36 +1,43 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import importlib.metadata as importlib_metadata
-import ctypes.util
 import os
+import shutil
 from pathlib import Path
 
-# Collect pythonnet and clr_loader runtime files (Python.Runtime.dll, clr.pyd, etc..)
+# Collect pythonnet runtime files to ensure DLL availability
 binaries = []
-hiddenimports = ['clr', 'clr_loader', 'pythonnet', 'cefpython3']
+hiddenimports = ['clr', 'clr_loader', 'pythonnet']
+
 try:
-    # Locate and include all pythonnet runtime files
+    # Get pythonnet distribution
     dist = importlib_metadata.distribution('pythonnet')
-    dist_files = dist.files or []
     
-    # Find all .dll and .pyd files from pythonnet's runtime directory
-    runtime_files = [f for f in dist_files if f.parts[0] == 'pythonnet' and 
-                     (str(f).endswith('.dll') or str(f).endswith('.pyd'))]
+    # Find pythonnet's runtime directory (contains Python.Runtime.dll)
+    if hasattr(dist, '_path'):
+        pythonnet_root = dist._path
+    else:
+        # Fallback: try to import and find the path
+        import pythonnet
+        pythonnet_root = Path(pythonnet.__file__).parent
     
-    for runtime_file in runtime_files:
-        dll_path = str(dist.locate_file(runtime_file))
-        if os.path.exists(dll_path):
-            # Put all DLLs/PYDs into the bundled pythonnet directory structure
-            binaries.append((dll_path, 'pythonnet'))
-            
-    # Also try to find Python.Runtime.dll via ctypes as fallback
-    if not runtime_files:
-        lib = ctypes.util.find_library('Python.Runtime')
-        if lib:
-            binaries.append((lib, '.'))
+    # Collect all DLLs and PYDs from pythonnet/runtime
+    runtime_dir = Path(pythonnet_root) / 'runtime'
+    if runtime_dir.exists():
+        for dll_file in runtime_dir.glob('*.dll'):
+            binaries.append((str(dll_file), 'pythonnet/runtime'))
+        for pyd_file in runtime_dir.glob('*.pyd'):
+            binaries.append((str(pyd_file), 'pythonnet/runtime'))
+    
+    # Also collect from pythonnet root
+    for dll_file in Path(pythonnet_root).glob('*.dll'):
+        binaries.append((str(dll_file), 'pythonnet'))
+    for pyd_file in Path(pythonnet_root).glob('*.pyd'):
+        binaries.append((str(pyd_file), 'pythonnet'))
+        
 except Exception as e:
-    # best-effort only; PyInstaller hooks may still handle this
-    pass
+    print(f"Warning: Could not collect pythonnet binaries: {e}")
+    # PyInstaller's hooks may still handle this
 
 
 a = Analysis(
