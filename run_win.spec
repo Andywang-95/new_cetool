@@ -1,53 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-import importlib.metadata as importlib_metadata
-import os
-import shutil
-from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-# Collect pythonnet runtime files to ensure DLL availability
-binaries = []
-hiddenimports = ['clr', 'clr_loader', 'pythonnet']
+# Collect all pythonnet and clr_loader data files and submodules
+# This ensures ALL DLLs, PYDs, and dependencies are included
+datas = [
+    ('app/templates', 'app/templates'),
+    ('app/static', 'app/static'),
+]
+datas += collect_data_files('pythonnet')
+datas += collect_data_files('clr_loader')
 
-try:
-    # Get pythonnet distribution
-    dist = importlib_metadata.distribution('pythonnet')
-    
-    # Find pythonnet's runtime directory (contains Python.Runtime.dll)
-    if hasattr(dist, '_path'):
-        pythonnet_root = dist._path
-    else:
-        # Fallback: try to import and find the path
-        import pythonnet
-        pythonnet_root = Path(pythonnet.__file__).parent
-    
-    # Collect all DLLs and PYDs from pythonnet/runtime
-    runtime_dir = Path(pythonnet_root) / 'runtime'
-    if runtime_dir.exists():
-        for dll_file in runtime_dir.glob('*.dll'):
-            binaries.append((str(dll_file), 'pythonnet/runtime'))
-        for pyd_file in runtime_dir.glob('*.pyd'):
-            binaries.append((str(pyd_file), 'pythonnet/runtime'))
-    
-    # Also collect from pythonnet root
-    for dll_file in Path(pythonnet_root).glob('*.dll'):
-        binaries.append((str(dll_file), 'pythonnet'))
-    for pyd_file in Path(pythonnet_root).glob('*.pyd'):
-        binaries.append((str(pyd_file), 'pythonnet'))
-        
-except Exception as e:
-    print(f"Warning: Could not collect pythonnet binaries: {e}")
-    # PyInstaller's hooks may still handle this
-
+hiddenimports = [
+    'clr',
+    'clr_loader',
+    'pythonnet',
+]
+hiddenimports += collect_submodules('clr_loader')
+hiddenimports += collect_submodules('pythonnet')
 
 a = Analysis(
     ['ce_tool.py'],
     pathex=['.'],
-    binaries=binaries,
-    datas=[
-        ('app/templates', 'app/templates'),
-        ('app/static', 'app/static'),
-    ],
+    binaries=[],
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
