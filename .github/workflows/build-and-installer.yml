@@ -18,12 +18,19 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install .NET Framework (required for pythonnet)
+        shell: powershell
+        run: |
+          # Install .NET Framework required by pythonnet/CLR
+          choco install dotnet-framework -y --force
+          Write-Host ".NET Framework installed"
+
       - name: Install Visual C++ Redistributable (required for pythonnet)
         shell: powershell
         run: |
-          # Install Visual C++ redistributable needed by pythonnet
-          choco install visualcpp-build-tools -y --force --no-progress
-          Write-Host "Visual C++ redistributable installed"
+          # Install Visual C++ 2015-2022 Redistributable (runtime, not build-tools)
+          choco install vcredist140 -y --force
+          Write-Host "Visual C++ Redistributable installed"
 
       - name: Install Python deps
         run: |
