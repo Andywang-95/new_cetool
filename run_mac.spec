@@ -24,7 +24,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='run',
+    name='ce_tool',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -43,11 +43,11 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='run',
+    name='ce_tool',
 )
 app = BUNDLE(
     coll,
-    name='run.app',
+    name='ce_tool.app',
     icon=None,
     bundle_identifier=None,
 )
