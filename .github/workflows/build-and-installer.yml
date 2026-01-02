@@ -18,12 +18,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install .NET Framework (required for pythonnet)
+      - name: Install .NET Framework (if not already present)
         shell: powershell
+        continue-on-error: true
         run: |
-          # Install .NET Framework required by pythonnet/CLR
-          choco install dotnet-framework -y --force
-          Write-Host ".NET Framework installed"
+          # windows-latest usually has .NET Framework pre-installed
+          # Attempt to install dotnetfx via Chocolatey (may not exist, but worth trying)
+          choco install dotnetfx -y --force --no-progress
+          Write-Host ".NET Framework install attempted (may already be present)"
 
       - name: Install Visual C++ Redistributable (required for pythonnet)
         shell: powershell
