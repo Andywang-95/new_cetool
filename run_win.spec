@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['run.py'],
+    ['ce_tool.py'],
     pathex=['.'],
     binaries=[],
     datas=[
