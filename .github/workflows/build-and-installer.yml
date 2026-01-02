@@ -14,18 +14,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ✅ 關鍵：固定 Python 3.10 x64
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.9"
           architecture: "x64"
 
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install pythonnet==3.0.3 --only-binary=:all:
+          pip install pythonnet==3.0.1 --only-binary=:all:
           pip install pandas openpyxl flask pywebview screeninfo tabulate
 
       # ✅ PyInstaller
