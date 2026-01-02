@@ -29,22 +29,22 @@ jobs:
 
       # Note: no zip step — Inno Setup will package dist\run directly.
 
-      - name: Install Inno Setup (Chocolatey)
-        shell: powershell
-        run: |
-          choco install innosetup -y
-          # ensure Inno path available
-          $env:Path += ";C:\\Program Files (x86)\\Inno Setup 6"
-          iscc /VER
+      # - name: Install Inno Setup (Chocolatey)
+      #   shell: powershell
+      #   run: |
+      #     choco install innosetup -y
+      #     # ensure Inno path available
+      #     $env:Path += ";C:\\Program Files (x86)\\Inno Setup 6"
+      #     iscc /VER
 
-      - name: Create installer (Inno)
-        shell: powershell
-        run: |
-          $ver = '${{ github.ref_name }}'
-          if ([string]::IsNullOrEmpty($ver)) { $ver = 'dev' }
-          Write-Host "Building installer version: $ver"
-          # call Inno Setup Compiler with a defined preprocessor variable MyAppVersion
-          iscc /DMyAppVersion=$ver .\installer\CE_Tool_installer.iss
+      # - name: Create installer (Inno)
+      #   shell: powershell
+      #   run: |
+      #     $ver = '${{ github.ref_name }}'
+      #     if ([string]::IsNullOrEmpty($ver)) { $ver = 'dev' }
+      #     Write-Host "Building installer version: $ver"
+      #     # call Inno Setup Compiler with a defined preprocessor variable MyAppVersion
+      #     iscc /DMyAppVersion=$ver .\installer\CE_Tool_installer.iss
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -62,7 +62,7 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: |
             CE Tool release ${{ github.ref_name }}
-            
+
             Download the installer from the assets below.
           files: |
             Output\CE_Tool_Installer_*.exe
