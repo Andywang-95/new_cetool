@@ -3,25 +3,32 @@
 import importlib.metadata as importlib_metadata
 import ctypes.util
 import os
+from pathlib import Path
 
-# Collect pythonnet runtime DLL (Python.Runtime.dll) if available on build machine
+# Collect pythonnet and clr_loader runtime files (Python.Runtime.dll, clr.pyd, etc..)
 binaries = []
-hiddenimports = ['clr', 'clr_loader']
+hiddenimports = ['clr', 'clr_loader', 'pythonnet']
 try:
-    # Prefer to locate the file via the distribution object so we get an absolute path
+    # Locate and include all pythonnet runtime files
     dist = importlib_metadata.distribution('pythonnet')
     dist_files = dist.files or []
-    runtime_dlls = [f for f in dist_files if f.name == 'Python.Runtime.dll']
-    if runtime_dlls:
-        # locate_file returns an absolute path to the file inside the distribution
-        dll_path = str(dist.locate_file(runtime_dlls[0]))
+    
+    # Find all .dll and .pyd files from pythonnet's runtime directory
+    runtime_files = [f for f in dist_files if f.parts[0] == 'pythonnet' and 
+                     (str(f).endswith('.dll') or str(f).endswith('.pyd'))]
+    
+    for runtime_file in runtime_files:
+        dll_path = str(dist.locate_file(runtime_file))
         if os.path.exists(dll_path):
-            binaries.append((dll_path, '.'))
-    else:
+            # Put all DLLs/PYDs into the bundled pythonnet directory structure
+            binaries.append((dll_path, 'pythonnet'))
+            
+    # Also try to find Python.Runtime.dll via ctypes as fallback
+    if not runtime_files:
         lib = ctypes.util.find_library('Python.Runtime')
         if lib:
             binaries.append((lib, '.'))
-except Exception:
+except Exception as e:
     # best-effort only; PyInstaller hooks may still handle this
     pass
 

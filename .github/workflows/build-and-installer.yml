@@ -18,10 +18,17 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install Visual C++ Redistributable (required for pythonnet)
+        shell: powershell
+        run: |
+          # Install Visual C++ redistributable needed by pythonnet
+          choco install visualcpp-build-tools -y --force --no-progress
+          Write-Host "Visual C++ redistributable installed"
+
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller pandas openpyxl flask pywebview screeninfo tabulate
+          pip install pyinstaller pandas openpyxl flask pywebview screeninfo tabulate pythonnet==3.0.5
 
       - name: Build with PyInstaller
         run: |
