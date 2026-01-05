@@ -26,8 +26,9 @@ CE Tool 是一個桌面應用程式（Flask + pywebview），用來協助 CE/BOM
 - **Select BOM**：選擇要檢查的 BOM Excel 檔。
 - **Save Settings**：設定並儲存資料庫路徑等設定（會寫入設定檔、也更新 `app.config`）。
 - **Start Review**（run_review）：會根據 BOM 預設的 `Action` 欄（`Add`、`Add Substitute`）逐列比對 mapping 資料庫，為主料填入 comment，替料若與主料相同則填「同上」，否則填原 comment。
-  - import 模式:
-  - _TBD_
+  - 檔案規格:
+    - 依照實際檔案類型選取對應規格
+    - 可選擇自定義，設定 Part Number 的起始欄位
 - **Start Import**（run_import）：將外部資料匯入到專案需要的格式或資料庫（請依介面提示操作）。
 - **Start Update**（run_update）：將已處理資料回寫或更新至資料來源。
 - **Logs 顯示**：畫面下方會顯示處理過程的 log 與錯誤訊息。
@@ -43,6 +44,7 @@ CE Tool 是一個桌面應用程式（Flask + pywebview），用來協助 CE/BOM
 2. 選擇要處理的 BOM（Select BOM）。
 3. 點選 `Start Review`（或 `Start Import` 依需求）。
 4. 檢視下方 Logs，確認處理結果。
+5. 每次手動更新 maintain.xlsx 內容後，需要執行 Update 來同步更新至 mapping.xlsx。
 
 ---
 
